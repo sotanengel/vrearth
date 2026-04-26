@@ -47,10 +47,11 @@ jobs:
           cargo deny check
 
       - name: cargo audit
-        # cargo-deny uses a different advisory-db layout; clear and let audit fetch fresh
+        # cargo-deny uses a different advisory-db layout; clear and let audit fetch fresh.
+        # RUSTSEC-2023-0071: rsa via sqlx-mysql (optional, uncompiled dep). We use HS256.
         run: |
           rm -rf "${CARGO_HOME:-$HOME/.cargo}/advisory-db"
-          cargo audit
+          cargo audit --ignore RUSTSEC-2023-0071
 
   frontend:
     name: Frontend — type-check / test
