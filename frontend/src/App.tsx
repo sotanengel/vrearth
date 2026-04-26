@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChatPanel } from "./components/ChatPanel";
+import { PlayerPanel } from "./components/PlayerPanel";
 import { RoomScene } from "./scenes/RoomScene";
 import { connect } from "./webrtc/wsClient";
 import { initAudio, toggleMute } from "./webrtc/rtcManager";
@@ -63,6 +64,7 @@ export function App() {
     <div style={styles.room}>
       <RoomScene />
       <div style={styles.sidebar}>
+        <PlayerPanel token={token} />
         <ChatPanel />
         <button
           onClick={handleMuteToggle}
