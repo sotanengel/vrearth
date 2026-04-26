@@ -1,6 +1,9 @@
 # ── Stage 1: Rust build ──────────────────────────────────────────────────────
-FROM rust:1.97-nightly AS rust-builder
+FROM rust:bookworm AS rust-builder
 WORKDIR /app
+
+# Copy toolchain file first so rustup installs the pinned nightly
+COPY rust-toolchain.toml ./
 
 # Cache dependencies separately from source
 COPY Cargo.toml Cargo.lock ./
@@ -15,9 +18,9 @@ RUN mkdir -p crates/vrearth-core/src crates/vrearth-server/src crates/vrearth-wa
     && echo "" > crates/vrearth-wasm/src/lib.rs \
     && cargo build --release -p vrearth-server 2>/dev/null || true
 
-# Now copy actual source and build
+# Now copy actual source and build (touch all .rs so cargo sees the changes)
 COPY crates/ ./crates/
-RUN touch crates/vrearth-server/src/main.rs \
+RUN find crates -name "*.rs" -exec touch {} \; \
     && cargo build --release -p vrearth-server
 
 # ── Stage 2: Frontend build ───────────────────────────────────────────────────
@@ -26,8 +29,8 @@ WORKDIR /app/frontend
 
 RUN corepack enable
 
-COPY frontend/.npmrc        ./
-COPY frontend/package.json  ./
+COPY frontend/.npmrc         ./
+COPY frontend/package.json   ./
 COPY frontend/pnpm-lock.yaml ./
 
 RUN pnpm install --frozen-lockfile
@@ -43,8 +46,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=rust-builder    /app/target/release/vrearth-server ./
-COPY --from=frontend-builder /app/frontend/dist                ./static/
+COPY --from=rust-builder     /app/target/release/vrearth-server ./
+COPY --from=frontend-builder /app/frontend/dist                 ./static/
 
 RUN useradd -r -s /bin/false appuser \
     && mkdir -p /app/data \
