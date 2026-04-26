@@ -42,7 +42,9 @@ jobs:
           tool: cargo-deny,cargo-audit
 
       - name: cargo deny
-        run: cargo deny check
+        run: |
+          rm -rf "${CARGO_HOME:-$HOME/.cargo}/advisory-db"
+          cargo deny check
 
       - name: cargo audit
         run: cargo audit
