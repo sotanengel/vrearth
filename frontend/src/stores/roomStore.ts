@@ -3,6 +3,7 @@ import type { Player, PlayerId, Position } from "../types";
 
 interface RoomState {
   myId: PlayerId | null;
+  roomId: string | null;
   players: Map<PlayerId, Player>;
   setWelcome: (myId: PlayerId, players: Player[]) => void;
   upsertPlayer: (player: Player) => void;
@@ -13,11 +14,13 @@ interface RoomState {
 
 export const useRoomStore = create<RoomState>((set) => ({
   myId: null,
+  roomId: null,
   players: new Map(),
 
   setWelcome: (myId, players) =>
     set({
       myId,
+      roomId: players.find((p) => p.id === myId)?.room_id ?? null,
       players: new Map(players.map((p) => [p.id, p])),
     }),
 
@@ -42,5 +45,5 @@ export const useRoomStore = create<RoomState>((set) => ({
       return { players: next };
     }),
 
-  reset: () => set({ myId: null, players: new Map() }),
+  reset: () => set({ myId: null, roomId: null, players: new Map() }),
 }));

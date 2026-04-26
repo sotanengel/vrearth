@@ -1,11 +1,13 @@
 import { useRef, useState } from "react";
 import { useChatStore } from "../stores/chatStore";
+import { useRoomStore } from "../stores/roomStore";
 import { sendMessage } from "../webrtc/wsClient";
 
 const MAX_TEXT_LEN = 200;
 
 export function ChatPanel() {
   const messages = useChatStore((s) => s.messages);
+  const players = useRoomStore((s) => s.players);
   const [text, setText] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +44,9 @@ export function ChatPanel() {
       >
         {messages.map((m, i) => (
           <li key={i} style={{ marginBottom: 4 }}>
-            <b style={{ color: "#60a5fa" }}>{m.fromId.slice(0, 8)}:</b>{" "}
+            <b style={{ color: "#60a5fa" }}>
+              {players.get(m.fromId)?.name ?? m.fromId.slice(0, 8)}:
+            </b>{" "}
             {m.text}
           </li>
         ))}
