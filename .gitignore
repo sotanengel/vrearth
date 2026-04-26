@@ -1,0 +1,10 @@
+/target
+/frontend/node_modules
+/frontend/dist
+/crates/vrearth-wasm/pkg
+*.db
+*.db-shm
+*.db-wal
+.env
+certs/
+.DS_Store

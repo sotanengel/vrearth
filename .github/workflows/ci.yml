@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  rust:
+    name: Rust — check / test / security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-04-20
+          targets: wasm32-unknown-unknown
+          components: rustfmt,clippy
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: cargo test
+        run: cargo test --workspace
+
+      - name: Install cargo-deny and cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-audit
+
+      - name: cargo deny
+        run: |
+          rm -rf "${CARGO_HOME:-$HOME/.cargo}/advisory-db"
+          cargo deny check
+
+      - name: cargo audit
+        # cargo-deny uses a different advisory-db layout; clear and let audit fetch fresh.
+        # RUSTSEC-2023-0071: rsa via sqlx-mysql (optional, uncompiled dep). We use HS256.
+        run: |
+          rm -rf "${CARGO_HOME:-$HOME/.cargo}/advisory-db"
+          cargo audit --ignore RUSTSEC-2023-0071
+
+  frontend:
+    name: Frontend — type-check / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - name: Setup Takumi Guard (npm proxy)
+        uses: flatt-security/setup-takumi-guard-npm@v1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: frontend
+
+      - name: Type check
+        run: pnpm exec tsc --noEmit
+        working-directory: frontend
+
+      - name: Unit tests
+        run: pnpm run test
+        working-directory: frontend
+
+      - name: Verify Takumi Guard is active
+        run: |
+          npm install @panda-guard/test-malicious && exit 1 || echo "Blocked as expected"
+        working-directory: frontend

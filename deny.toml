@@ -1,0 +1,42 @@
+[advisories]
+version = 2
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+# sqlx-mysql is an optional/uncompiled dep in Cargo.lock (we use SQLite only, not MySQL).
+# The rsa crate is never linked; we use HS256 (HMAC) for JWTs, not RSA.
+ignore = [
+    { id = "RUSTSEC-2023-0071", reason = "sqlx-mysql is only an optional dep in Cargo.lock; never compiled. We use HS256, not RSA." },
+]
+
+[licenses]
+version = 2
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "CC0-1.0",
+    "OpenSSL",
+    "Zlib",
+    "CDLA-Permissive-2.0",
+]
+
+[[licenses.clarify]]
+name = "ring"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 }
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "warn"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

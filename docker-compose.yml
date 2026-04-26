@@ -1,0 +1,21 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - vrearth-data:/app/data
+    environment:
+      DATABASE_URL: "sqlite:///app/data/vrearth.db"
+      JWT_SECRET: "${JWT_SECRET:-change-me-in-production-min-32-chars}"
+      RUST_LOG: "${RUST_LOG:-info}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  vrearth-data:
