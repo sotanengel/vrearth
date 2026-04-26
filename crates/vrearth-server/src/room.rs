@@ -1,14 +1,17 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 use vrearth_core::{Player, PlayerId, Position, RoomBounds, RoomId, ServerMessage};
 
 pub const BROADCAST_CAPACITY: usize = 128;
+pub const DIRECT_CAPACITY: usize = 64;
 
 pub struct ActiveRoom {
     pub players: HashMap<PlayerId, Player>,
     pub tx: broadcast::Sender<ServerMessage>,
     pub bounds: RoomBounds,
+    /// Per-player direct (non-broadcast) senders for targeted messages like WebRTC signaling
+    pub direct: HashMap<PlayerId, mpsc::Sender<ServerMessage>>,
 }
 
 impl ActiveRoom {
@@ -18,6 +21,7 @@ impl ActiveRoom {
             players: HashMap::new(),
             tx,
             bounds: RoomBounds::default(),
+            direct: HashMap::new(),
         }
     }
 }
@@ -47,11 +51,38 @@ impl RoomRegistry {
         Some(room.players.values().cloned().collect())
     }
 
+    /// Register a direct channel for targeted messaging (e.g. WebRTC signaling).
+    /// Returns the receiver end that the connection's write task should drain.
+    pub fn register_direct(
+        &self,
+        room_id: &RoomId,
+        player_id: &PlayerId,
+    ) -> Option<mpsc::Receiver<ServerMessage>> {
+        let mut map = self.inner.lock().unwrap();
+        let room = map.get_mut(room_id)?;
+        let (tx, rx) = mpsc::channel(DIRECT_CAPACITY);
+        room.direct.insert(player_id.clone(), tx);
+        Some(rx)
+    }
+
+    /// Send a message directly to a specific player (non-broadcast).
+    /// Returns false if the player is not in the room or their channel is full/closed.
+    pub fn send_direct(&self, room_id: &RoomId, player_id: &PlayerId, msg: ServerMessage) -> bool {
+        let map = self.inner.lock().unwrap();
+        if let Some(room) = map.get(room_id) {
+            if let Some(tx) = room.direct.get(player_id) {
+                return tx.try_send(msg).is_ok();
+            }
+        }
+        false
+    }
+
     /// Remove a player from a room
     pub fn leave(&self, room_id: &RoomId, player_id: &PlayerId) {
         let mut map = self.inner.lock().unwrap();
         if let Some(room) = map.get_mut(room_id) {
             room.players.remove(player_id);
+            room.direct.remove(player_id);
         }
     }
 
@@ -206,5 +237,53 @@ mod tests {
         let room_id = RoomId::new();
         reg.create_room(room_id.clone());
         assert!(reg.sender(&room_id).is_some());
+    }
+
+    #[tokio::test]
+    async fn direct_channel_delivers_message() {
+        let reg = RoomRegistry::new();
+        let room_id = RoomId::new();
+        reg.create_room(room_id.clone());
+        let player_id = PlayerId::new();
+        reg.join(
+            &room_id,
+            make_player(player_id.clone(), room_id.clone(), false),
+        );
+        let mut rx = reg
+            .register_direct(&room_id, &player_id)
+            .expect("channel created");
+
+        let sent = reg.send_direct(&room_id, &player_id, ServerMessage::Kicked);
+        assert!(sent);
+
+        let msg = rx.recv().await.expect("message received");
+        assert!(matches!(msg, ServerMessage::Kicked));
+    }
+
+    #[test]
+    fn leave_removes_direct_channel() {
+        let reg = RoomRegistry::new();
+        let room_id = RoomId::new();
+        reg.create_room(room_id.clone());
+        let player_id = PlayerId::new();
+        reg.join(
+            &room_id,
+            make_player(player_id.clone(), room_id.clone(), false),
+        );
+        reg.register_direct(&room_id, &player_id);
+        reg.leave(&room_id, &player_id);
+        // After leave, send_direct should return false (no channel)
+        let sent = reg.send_direct(&room_id, &player_id, ServerMessage::Kicked);
+        assert!(!sent);
+    }
+
+    #[test]
+    fn send_direct_to_unknown_player_returns_false() {
+        let reg = RoomRegistry::new();
+        let room_id = RoomId::new();
+        reg.create_room(room_id.clone());
+        let unknown_id = PlayerId::new();
+        let sent = reg.send_direct(&room_id, &unknown_id, ServerMessage::Kicked);
+        assert!(!sent);
     }
 }

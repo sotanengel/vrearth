@@ -13,6 +13,12 @@ pub enum ClientMessage {
     Chat { text: String },
     /// Host-only: kick a player from the room
     Kick { player_id: PlayerId },
+    /// WebRTC signaling: send SDP offer to a specific peer
+    RtcOffer { to_id: PlayerId, sdp: String },
+    /// WebRTC signaling: send SDP answer to a specific peer
+    RtcAnswer { to_id: PlayerId, sdp: String },
+    /// WebRTC signaling: send ICE candidate to a specific peer
+    RtcIce { to_id: PlayerId, candidate: String },
 }
 
 /// Messages sent from the server to a browser client
@@ -39,6 +45,15 @@ pub enum ServerMessage {
     Kicked,
     /// Error response
     Error { code: u16, message: String },
+    /// WebRTC signaling: relayed SDP offer from a peer
+    RtcOffer { from_id: PlayerId, sdp: String },
+    /// WebRTC signaling: relayed SDP answer from a peer
+    RtcAnswer { from_id: PlayerId, sdp: String },
+    /// WebRTC signaling: relayed ICE candidate from a peer
+    RtcIce {
+        from_id: PlayerId,
+        candidate: String,
+    },
 }
 
 #[cfg(test)]
@@ -138,5 +153,101 @@ mod tests {
         let json = serde_json::to_string(&msg).unwrap();
         let back: ServerMessage = serde_json::from_str(&json).unwrap();
         assert!(matches!(back, ServerMessage::PlayerJoined { .. }));
+    }
+
+    #[test]
+    fn client_rtc_offer_serializes_snake_case() {
+        let id = PlayerId::new();
+        let msg = ClientMessage::RtcOffer {
+            to_id: id.clone(),
+            sdp: "v=0\r\n".to_string(),
+        };
+        let json = serde_json::to_string(&msg).unwrap();
+        assert!(json.contains("\"type\":\"rtc_offer\""), "got: {json}");
+        assert!(json.contains("\"to_id\""));
+    }
+
+    #[test]
+    fn client_rtc_answer_roundtrips_json() {
+        let id = PlayerId::new();
+        let msg = ClientMessage::RtcAnswer {
+            to_id: id.clone(),
+            sdp: "v=0\r\nanswer".to_string(),
+        };
+        let json = serde_json::to_string(&msg).unwrap();
+        let back: ClientMessage = serde_json::from_str(&json).unwrap();
+        match back {
+            ClientMessage::RtcAnswer { to_id, sdp } => {
+                assert_eq!(to_id, id);
+                assert_eq!(sdp, "v=0\r\nanswer");
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn client_rtc_ice_roundtrips_json() {
+        let id = PlayerId::new();
+        let msg = ClientMessage::RtcIce {
+            to_id: id.clone(),
+            candidate: "candidate:...".to_string(),
+        };
+        let json = serde_json::to_string(&msg).unwrap();
+        let back: ClientMessage = serde_json::from_str(&json).unwrap();
+        match back {
+            ClientMessage::RtcIce { to_id, candidate } => {
+                assert_eq!(to_id, id);
+                assert_eq!(candidate, "candidate:...");
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn server_rtc_offer_serializes_snake_case() {
+        let id = PlayerId::new();
+        let msg = ServerMessage::RtcOffer {
+            from_id: id,
+            sdp: "offer-sdp".to_string(),
+        };
+        let json = serde_json::to_string(&msg).unwrap();
+        assert!(json.contains("\"type\":\"rtc_offer\""), "got: {json}");
+        assert!(json.contains("\"from_id\""));
+    }
+
+    #[test]
+    fn server_rtc_answer_roundtrips_json() {
+        let id = PlayerId::new();
+        let msg = ServerMessage::RtcAnswer {
+            from_id: id.clone(),
+            sdp: "answer-sdp".to_string(),
+        };
+        let json = serde_json::to_string(&msg).unwrap();
+        let back: ServerMessage = serde_json::from_str(&json).unwrap();
+        match back {
+            ServerMessage::RtcAnswer { from_id, sdp } => {
+                assert_eq!(from_id, id);
+                assert_eq!(sdp, "answer-sdp");
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn server_rtc_ice_roundtrips_json() {
+        let id = PlayerId::new();
+        let msg = ServerMessage::RtcIce {
+            from_id: id.clone(),
+            candidate: "ice-candidate".to_string(),
+        };
+        let json = serde_json::to_string(&msg).unwrap();
+        let back: ServerMessage = serde_json::from_str(&json).unwrap();
+        match back {
+            ServerMessage::RtcIce { from_id, candidate } => {
+                assert_eq!(from_id, id);
+                assert_eq!(candidate, "ice-candidate");
+            }
+            _ => panic!("wrong variant"),
+        }
     }
 }

@@ -47,6 +47,15 @@ async fn handle_socket(socket: WebSocket, claims: vrearth_core::InviteClaims, st
     };
     let mut rx = tx.subscribe();
 
+    // Register a direct (point-to-point) channel for this player
+    let mut direct_rx = match state.rooms.register_direct(&room_id, &player_id) {
+        Some(rx) => rx,
+        None => {
+            tracing::error!("failed to register direct channel");
+            return;
+        }
+    };
+
     let player = Player::new(
         player_id.clone(),
         room_id.clone(),
@@ -77,22 +86,38 @@ async fn handle_socket(socket: WebSocket, claims: vrearth_core::InviteClaims, st
     // Broadcast PlayerJoined to others
     let _ = tx.send(ServerMessage::PlayerJoined { player });
 
-    // Spawn write task: forward broadcast messages to this WebSocket
+    // Spawn write task: forward broadcast + direct messages to this WebSocket
     let write_task = tokio::spawn(async move {
         loop {
-            match rx.recv().await {
-                Ok(msg) => {
-                    if let Ok(json) = serde_json::to_string(&msg) {
-                        if ws_tx.send(Message::Text(json.into())).await.is_err() {
+            tokio::select! {
+                broadcast_msg = rx.recv() => {
+                    match broadcast_msg {
+                        Ok(msg) => {
+                            if let Ok(json) = serde_json::to_string(&msg) {
+                                if ws_tx.send(Message::Text(json.into())).await.is_err() {
+                                    break;
+                                }
+                            }
+                        }
+                        Err(broadcast::error::RecvError::Lagged(_)) => {
+                            tracing::warn!("broadcast receiver lagged, closing connection");
                             break;
                         }
+                        Err(broadcast::error::RecvError::Closed) => break,
                     }
                 }
-                Err(broadcast::error::RecvError::Lagged(_)) => {
-                    tracing::warn!("broadcast receiver lagged, closing connection");
-                    break;
+                direct_msg = direct_rx.recv() => {
+                    match direct_msg {
+                        Some(msg) => {
+                            if let Ok(json) = serde_json::to_string(&msg) {
+                                if ws_tx.send(Message::Text(json.into())).await.is_err() {
+                                    break;
+                                }
+                            }
+                        }
+                        None => break,
+                    }
                 }
-                Err(broadcast::error::RecvError::Closed) => break,
             }
         }
     });
@@ -137,15 +162,46 @@ async fn handle_socket(socket: WebSocket, claims: vrearth_core::InviteClaims, st
                 player_id: target_id,
             } => {
                 if state.rooms.is_host(&room_id, &player_id) {
-                    // Send Kicked directly (can't send via broadcast to specific player here)
-                    // Signal via broadcast with a tagged PlayerLeft — kick handling
-                    // is simplified: broadcast Kicked-signal as PlayerLeft for now
-                    // TODO: Phase 2 — targeted kick message via separate channel
+                    // Send Kicked directly to the target player, then broadcast PlayerLeft
+                    state
+                        .rooms
+                        .send_direct(&room_id, &target_id, ServerMessage::Kicked);
                     state.rooms.leave(&room_id, &target_id);
                     let _ = tx.send(ServerMessage::PlayerLeft {
                         player_id: target_id,
                     });
                 }
+            }
+            // WebRTC signaling: relay point-to-point to the target player
+            ClientMessage::RtcOffer { to_id, sdp } => {
+                state.rooms.send_direct(
+                    &room_id,
+                    &to_id,
+                    ServerMessage::RtcOffer {
+                        from_id: player_id.clone(),
+                        sdp,
+                    },
+                );
+            }
+            ClientMessage::RtcAnswer { to_id, sdp } => {
+                state.rooms.send_direct(
+                    &room_id,
+                    &to_id,
+                    ServerMessage::RtcAnswer {
+                        from_id: player_id.clone(),
+                        sdp,
+                    },
+                );
+            }
+            ClientMessage::RtcIce { to_id, candidate } => {
+                state.rooms.send_direct(
+                    &room_id,
+                    &to_id,
+                    ServerMessage::RtcIce {
+                        from_id: player_id.clone(),
+                        candidate,
+                    },
+                );
             }
         }
     }
