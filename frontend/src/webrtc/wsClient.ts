@@ -1,6 +1,15 @@
 import { useChatStore } from "../stores/chatStore";
 import { useRoomStore } from "../stores/roomStore";
 import type { ClientMessage, ServerMessage } from "../types";
+import {
+  connectPeer,
+  disconnectPeer,
+  handleAnswer,
+  handleIce,
+  handleOffer,
+  setMyId,
+  updateGain,
+} from "./rtcManager";
 
 let socket: WebSocket | null = null;
 
@@ -37,31 +46,61 @@ export function sendMessage(msg: ClientMessage): void {
   }
 }
 
-function handleServerMessage(msg: ServerMessage): void {
+export function handleServerMessage(msg: ServerMessage): void {
   const room = useRoomStore.getState();
   const chat = useChatStore.getState();
 
   switch (msg.type) {
     case "welcome":
       room.setWelcome(msg.your_id, msg.players);
+      setMyId(msg.your_id);
       break;
+
     case "player_joined":
       room.upsertPlayer(msg.player);
+      // Initiate WebRTC voice connection with the new peer
+      void connectPeer(msg.player.id);
       break;
-    case "player_moved":
+
+    case "player_moved": {
       room.movePlayer(msg.player_id, msg.position);
+      // Adjust audio volume based on distance to the moved player
+      const myPos = room.players.get(room.myId ?? "")?.position;
+      const theirPos = msg.position;
+      if (myPos && room.myId && msg.player_id !== room.myId) {
+        updateGain(msg.player_id, myPos.x, myPos.y, theirPos.x, theirPos.y);
+      }
       break;
+    }
+
     case "player_left":
       room.removePlayer(msg.player_id);
+      disconnectPeer(msg.player_id);
       break;
+
     case "chat":
       chat.addMessage({ fromId: msg.from_id, text: msg.text });
       break;
+
     case "kicked":
       disconnect();
       break;
+
     case "error":
       console.error(`Server error ${msg.code}: ${msg.message}`);
+      break;
+
+    // ── WebRTC signaling ──────────────────────────────────────────────────
+    case "rtc_offer":
+      void handleOffer(msg.from_id, msg.sdp);
+      break;
+
+    case "rtc_answer":
+      void handleAnswer(msg.from_id, msg.sdp);
+      break;
+
+    case "rtc_ice":
+      void handleIce(msg.from_id, msg.candidate);
       break;
   }
 }

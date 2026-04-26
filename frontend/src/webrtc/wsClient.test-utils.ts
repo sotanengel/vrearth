@@ -29,5 +29,10 @@ export function handleServerMessageForTest(msg: ServerMessage): void {
     case "error":
       console.error(`Server error ${msg.code}: ${msg.message}`);
       break;
+    // WebRTC signaling messages — no-op in unit tests (tested via rtcManager.test.ts)
+    case "rtc_offer":
+    case "rtc_answer":
+    case "rtc_ice":
+      break;
   }
 }

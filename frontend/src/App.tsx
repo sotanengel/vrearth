@@ -1,20 +1,26 @@
 import { useEffect, useState } from "react";
 import { ChatPanel } from "./components/ChatPanel";
 import { RoomScene } from "./scenes/RoomScene";
-import { useRoomStore } from "./stores/roomStore";
 import { connect } from "./webrtc/wsClient";
+import { initAudio, toggleMute } from "./webrtc/rtcManager";
 
 export function App() {
   const token = new URLSearchParams(window.location.search).get("token") ?? "";
-  const myId = useRoomStore((s) => s.myId);
   const [name, setName] = useState("");
   const [joined, setJoined] = useState(false);
+  const [muted, setMuted] = useState(false);
 
   useEffect(() => {
     if (token && joined) {
+      void initAudio();
       connect(token);
     }
   }, [token, joined]);
+
+  const handleMuteToggle = () => {
+    const nowMuted = toggleMute();
+    setMuted(nowMuted);
+  };
 
   if (!token) {
     return (
@@ -56,7 +62,16 @@ export function App() {
   return (
     <div style={styles.room}>
       <RoomScene />
-      <ChatPanel />
+      <div style={styles.sidebar}>
+        <ChatPanel />
+        <button
+          onClick={handleMuteToggle}
+          style={{ ...styles.muteButton, background: muted ? "#ef4444" : "#22c55e" }}
+          title={muted ? "マイクをオンにする" : "マイクをミュート"}
+        >
+          {muted ? "🔇 ミュート中" : "🎤 ミュート"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -94,4 +109,16 @@ const styles = {
     cursor: "pointer",
   },
   room: { display: "flex" as const, background: "#0f172a" },
+  sidebar: {
+    display: "flex" as const,
+    flexDirection: "column" as const,
+  },
+  muteButton: {
+    padding: "10px 16px",
+    border: "none",
+    color: "white",
+    fontSize: 14,
+    cursor: "pointer",
+    fontFamily: "system-ui, sans-serif",
+  },
 } as const;
