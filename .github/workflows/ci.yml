@@ -36,10 +36,13 @@ jobs:
       - name: cargo test
         run: cargo test --workspace
 
-      - name: cargo deny
-        uses: EmbarkStudios/cargo-deny-action@v2
+      - name: Install cargo-deny and cargo-audit
+        uses: taiki-e/install-action@v2
         with:
-          command: check
+          tool: cargo-deny,cargo-audit
+
+      - name: cargo deny
+        run: cargo deny check
 
       - name: cargo audit
         run: cargo audit
