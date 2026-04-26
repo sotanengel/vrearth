@@ -47,7 +47,8 @@ jobs:
           cargo deny check
 
       - name: cargo audit
-        run: cargo audit
+        # advisory-db was already fetched by cargo-deny above; skip re-fetching
+        run: cargo audit --no-fetch
 
   frontend:
     name: Frontend — type-check / test
