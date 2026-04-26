@@ -15,6 +15,7 @@ use vrearth_core::{ClientMessage, Player, PlayerId, ServerMessage};
 #[derive(Deserialize)]
 pub struct ConnectParams {
     pub token: String,
+    pub name: Option<String>,
 }
 
 pub async fn ws_handler(
@@ -27,10 +28,25 @@ pub async fn ws_handler(
         Err(_) => return StatusCode::UNAUTHORIZED.into_response(),
     };
 
-    ws.on_upgrade(move |socket| handle_socket(socket, claims, state))
+    let player_name = params
+        .name
+        .as_deref()
+        .map(|n| n.trim())
+        .filter(|n| !n.is_empty())
+        .unwrap_or("Anonymous")
+        .chars()
+        .take(32)
+        .collect::<String>();
+
+    ws.on_upgrade(move |socket| handle_socket(socket, claims, state, player_name))
 }
 
-async fn handle_socket(socket: WebSocket, claims: vrearth_core::InviteClaims, state: AppState) {
+async fn handle_socket(
+    socket: WebSocket,
+    claims: vrearth_core::InviteClaims,
+    state: AppState,
+    player_name: String,
+) {
     let player_id = PlayerId::new();
     let room_id = claims.room_id.clone();
 
@@ -59,7 +75,7 @@ async fn handle_socket(socket: WebSocket, claims: vrearth_core::InviteClaims, st
     let player = Player::new(
         player_id.clone(),
         room_id.clone(),
-        "Anonymous",
+        &player_name,
         claims.is_host,
     );
 

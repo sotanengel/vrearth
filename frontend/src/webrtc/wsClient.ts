@@ -13,8 +13,8 @@ import {
 
 let socket: WebSocket | null = null;
 
-export function connect(token: string): void {
-  const wsUrl = `ws://${window.location.host}/ws?token=${encodeURIComponent(token)}`;
+export function connect(token: string, name = "Anonymous"): void {
+  const wsUrl = `ws://${window.location.host}/ws?token=${encodeURIComponent(token)}&name=${encodeURIComponent(name)}`;
   socket = new WebSocket(wsUrl);
 
   socket.addEventListener("message", (event) => {
