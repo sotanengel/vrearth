@@ -13,7 +13,7 @@ export function App() {
   useEffect(() => {
     if (token && joined) {
       void initAudio();
-      connect(token);
+      connect(token, name);
     }
   }, [token, joined]);
 
@@ -74,6 +74,7 @@ export function App() {
       </div>
     </div>
   );
+
 }
 
 const styles = {
@@ -108,10 +109,24 @@ const styles = {
     fontSize: 16,
     cursor: "pointer",
   },
-  room: { display: "flex" as const, background: "#0f172a" },
+  room: {
+    position: "relative" as const,
+    width: "100vw",
+    height: "100vh",
+    overflow: "hidden",
+    background: "#0f172a",
+  },
   sidebar: {
+    position: "fixed" as const,
+    top: 0,
+    right: 0,
     display: "flex" as const,
     flexDirection: "column" as const,
+    width: 260,
+    height: "100vh",
+    background: "rgba(15, 23, 42, 0.85)",
+    borderLeft: "1px solid #334155",
+    zIndex: 10,
   },
   muteButton: {
     padding: "10px 16px",
@@ -120,5 +135,6 @@ const styles = {
     fontSize: 14,
     cursor: "pointer",
     fontFamily: "system-ui, sans-serif",
+    flexShrink: 0,
   },
 } as const;
