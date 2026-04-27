@@ -1,4 +1,4 @@
-use crate::{invite::InviteService, objects, state::AppState};
+use crate::{invite::InviteService, objects, sessions, state::AppState};
 
 /// Radius (room units) within which LocalChat messages are delivered
 const LOCAL_CHAT_RANGE: f32 = 400.0;
@@ -112,6 +112,9 @@ async fn handle_socket(
     if let Ok(json) = serde_json::to_string(&welcome) {
         let _ = ws_tx.send(Message::Text(json.into())).await;
     }
+
+    // Record session join
+    let _ = sessions::record_join(&state.db, &player_id.to_string(), &room_id.to_string(), &player_name).await;
 
     // Send whiteboard snapshot to new player
     let strokes = state.rooms.get_whiteboard_strokes(&room_id);
@@ -342,6 +345,7 @@ async fn handle_socket(
 
     // Cleanup on disconnect
     write_task.abort();
+    let _ = sessions::record_leave(&state.db, &player_id.to_string()).await;
     state.rooms.leave(&room_id, &player_id);
     let _ = tx.send(ServerMessage::PlayerLeft {
         player_id: player_id.clone(),

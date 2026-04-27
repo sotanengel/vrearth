@@ -1,7 +1,7 @@
 use crate::{
     handlers::{
         health::health,
-        room::{create_invite, create_room},
+        room::{create_invite, create_room, get_sessions},
     },
     state::AppState,
     ws::ws_handler,
@@ -28,6 +28,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/health", get(health))
         .route("/api/rooms", post(create_room))
         .route("/api/rooms/{room_id}/invite", post(create_invite))
+        .route("/api/rooms/{room_id}/sessions", get(get_sessions))
         .route("/ws", get(ws_handler))
         .layer(cors)
         .with_state(state)

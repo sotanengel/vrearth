@@ -4,6 +4,7 @@ mod handlers;
 mod invite;
 mod objects;
 mod room;
+mod sessions;
 mod state;
 mod ws;
 
