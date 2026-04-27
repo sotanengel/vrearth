@@ -1,4 +1,4 @@
-use crate::{Player, PlayerId, Position};
+use crate::{Player, PlayerId, Position, RoomObject};
 use serde::{Deserialize, Serialize};
 
 /// Messages sent from the browser client to the server
@@ -23,6 +23,12 @@ pub enum ClientMessage {
     Emote { emoji: String },
     /// Send a proximity chat (only delivered to players within LOCAL_CHAT_RANGE)
     LocalChat { text: String },
+    /// Host: place a new furniture object in the room
+    PlaceObject { kind: String, x: f32, y: f32 },
+    /// Host: move an existing object to a new position
+    MoveObject { object_id: String, x: f32, y: f32 },
+    /// Host: remove an object from the room
+    DeleteObject { object_id: String },
 }
 
 /// Messages sent from the server to a browser client
@@ -33,6 +39,7 @@ pub enum ServerMessage {
     Welcome {
         your_id: PlayerId,
         players: Vec<Player>,
+        objects: Vec<RoomObject>,
     },
     /// Broadcast when any avatar position changes
     PlayerMoved {
@@ -62,6 +69,12 @@ pub enum ServerMessage {
     Emote { from_id: PlayerId, emoji: String },
     /// Proximity chat message (only sent to nearby players)
     LocalChat { from_id: PlayerId, text: String },
+    /// Broadcast when a new object is placed
+    ObjectPlaced { object: RoomObject },
+    /// Broadcast when an object is moved
+    ObjectMoved { object_id: String, x: f32, y: f32 },
+    /// Broadcast when an object is deleted
+    ObjectDeleted { object_id: String },
 }
 
 #[cfg(test)]
@@ -107,13 +120,15 @@ mod tests {
         let msg = ServerMessage::Welcome {
             your_id: id.clone(),
             players: vec![],
+            objects: vec![],
         };
         let json = serde_json::to_string(&msg).unwrap();
         let back: ServerMessage = serde_json::from_str(&json).unwrap();
         match back {
-            ServerMessage::Welcome { your_id, players } => {
+            ServerMessage::Welcome { your_id, players, objects } => {
                 assert_eq!(your_id, id);
                 assert!(players.is_empty());
+                assert!(objects.is_empty());
             }
             _ => panic!("wrong variant"),
         }

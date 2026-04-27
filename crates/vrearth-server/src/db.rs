@@ -5,10 +5,8 @@ use sqlx::{
 };
 use std::str::FromStr;
 
-#[allow(dead_code)]
 pub type Db = SqlitePool;
 
-#[allow(dead_code)]
 pub async fn connect(database_url: &str) -> Result<Db> {
     let opts = SqliteConnectOptions::from_str(database_url)?
         .create_if_missing(true)

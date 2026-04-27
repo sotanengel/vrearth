@@ -2,6 +2,7 @@ mod app;
 mod db;
 mod handlers;
 mod invite;
+mod objects;
 mod room;
 mod state;
 mod ws;
@@ -19,7 +20,12 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|_| "change-me-in-production-min-32-chars".to_string())
         .into_bytes();
 
-    let state = AppState::new(jwt_secret);
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "vrearth.db".to_string());
+
+    let db = db::connect(&database_url).await?;
+
+    let state = AppState::new(jwt_secret, db);
     let router = app::build_router(state);
 
     let addr = "0.0.0.0:3000";

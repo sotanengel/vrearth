@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ChatPanel } from "./components/ChatPanel";
+import { LayoutPanel } from "./components/LayoutPanel";
 import { PlayerPanel } from "./components/PlayerPanel";
 import { RoomScene } from "./scenes/RoomScene";
+import { useRoomStore } from "./stores/roomStore";
 import { connect } from "./webrtc/wsClient";
 import { initAudio, setMute, toggleMute } from "./webrtc/rtcManager";
 
@@ -12,6 +14,8 @@ export function App() {
   const [muted, setMuted] = useState(false);
   const [pttMode, setPttMode] = useState(false);
   const [showRange, setShowRange] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedKind, setSelectedKind] = useState<string>("sofa");
   const pttActiveRef = useRef(false);
 
   useEffect(() => {
@@ -99,11 +103,22 @@ export function App() {
     );
   }
 
+  const { players, myId } = useRoomStore();
+  const isHost = players.get(myId ?? "")?.is_host ?? false;
+
   return (
     <div style={styles.room}>
-      <RoomScene showRange={showRange} />
+      <RoomScene showRange={showRange} editMode={editMode} selectedKind={selectedKind} />
       <div style={styles.sidebar}>
         <PlayerPanel token={token} />
+        {isHost && (
+          <LayoutPanel
+            editMode={editMode}
+            onToggleEdit={() => setEditMode((v) => !v)}
+            selectedKind={selectedKind}
+            onSelectKind={setSelectedKind}
+          />
+        )}
         <ChatPanel />
         <button
           onClick={handleMuteToggle}
