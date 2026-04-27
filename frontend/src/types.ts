@@ -14,6 +14,16 @@ export interface Player {
   is_host: boolean;
 }
 
+export interface RoomObject {
+  id: string;
+  room_id: string;
+  kind: string;
+  x: number;
+  y: number;
+  rotation: number;
+  z_order: number;
+}
+
 // ── Client → Server ──────────────────────────────────────────────────────────
 
 export type ClientMessage =
@@ -25,12 +35,15 @@ export type ClientMessage =
   | { type: "rtc_answer"; to_id: PlayerId; sdp: string }
   | { type: "rtc_ice"; to_id: PlayerId; candidate: string }
   | { type: "emote"; emoji: string }
-  | { type: "local_chat"; text: string };
+  | { type: "local_chat"; text: string }
+  | { type: "place_object"; kind: string; x: number; y: number }
+  | { type: "move_object"; object_id: string; x: number; y: number }
+  | { type: "delete_object"; object_id: string };
 
 // ── Server → Client ──────────────────────────────────────────────────────────
 
 export type ServerMessage =
-  | { type: "welcome"; your_id: PlayerId; players: Player[] }
+  | { type: "welcome"; your_id: PlayerId; players: Player[]; objects: RoomObject[] }
   | { type: "player_moved"; player_id: PlayerId; position: Position }
   | { type: "player_joined"; player: Player }
   | { type: "player_left"; player_id: PlayerId }
@@ -41,4 +54,7 @@ export type ServerMessage =
   | { type: "rtc_answer"; from_id: PlayerId; sdp: string }
   | { type: "rtc_ice"; from_id: PlayerId; candidate: string }
   | { type: "emote"; from_id: PlayerId; emoji: string }
-  | { type: "local_chat"; from_id: PlayerId; text: string };
+  | { type: "local_chat"; from_id: PlayerId; text: string }
+  | { type: "object_placed"; object: RoomObject }
+  | { type: "object_moved"; object_id: string; x: number; y: number }
+  | { type: "object_deleted"; object_id: string };

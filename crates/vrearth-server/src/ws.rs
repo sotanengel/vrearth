@@ -1,4 +1,4 @@
-use crate::{invite::InviteService, state::AppState};
+use crate::{invite::InviteService, objects, state::AppState};
 
 /// Radius (room units) within which LocalChat messages are delivered
 const LOCAL_CHAT_RANGE: f32 = 400.0;
@@ -14,7 +14,8 @@ use axum::{
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use tokio::sync::broadcast;
-use vrearth_core::{ClientMessage, Player, PlayerId, ServerMessage};
+use uuid::Uuid;
+use vrearth_core::{ClientMessage, Player, PlayerId, RoomObject, ServerMessage};
 
 #[derive(Deserialize)]
 pub struct ConnectParams {
@@ -94,10 +95,16 @@ async fn handle_socket(
 
     let (mut ws_tx, mut ws_rx) = socket.split();
 
+    // Load existing room objects from DB
+    let room_objects = objects::list(&state.db, &room_id.to_string())
+        .await
+        .unwrap_or_default();
+
     // Send Welcome to new player
     let welcome = ServerMessage::Welcome {
         your_id: player_id.clone(),
         players: all_players,
+        objects: room_objects,
     };
     if let Ok(json) = serde_json::to_string(&welcome) {
         let _ = ws_tx.send(Message::Text(json.into())).await;
@@ -222,6 +229,42 @@ async fn handle_socket(
                         candidate,
                     },
                 );
+            }
+            ClientMessage::PlaceObject { kind, x, y } => {
+                if state.rooms.is_host(&room_id, &player_id) {
+                    let object = RoomObject {
+                        id: Uuid::new_v4().to_string(),
+                        room_id: room_id.to_string(),
+                        kind,
+                        x,
+                        y,
+                        rotation: 0.0,
+                        z_order: 0,
+                    };
+                    if objects::insert(&state.db, &object).await.is_ok() {
+                        let _ = tx.send(ServerMessage::ObjectPlaced { object });
+                    }
+                }
+            }
+            ClientMessage::MoveObject { object_id, x, y } => {
+                if state.rooms.is_host(&room_id, &player_id) {
+                    if objects::update_position(&state.db, &object_id, &room_id.to_string(), x, y)
+                        .await
+                        .unwrap_or(false)
+                    {
+                        let _ = tx.send(ServerMessage::ObjectMoved { object_id, x, y });
+                    }
+                }
+            }
+            ClientMessage::DeleteObject { object_id } => {
+                if state.rooms.is_host(&room_id, &player_id) {
+                    if objects::delete(&state.db, &object_id, &room_id.to_string())
+                        .await
+                        .unwrap_or(false)
+                    {
+                        let _ = tx.send(ServerMessage::ObjectDeleted { object_id });
+                    }
+                }
             }
             ClientMessage::LocalChat { text } => {
                 if !text.is_empty() && text.len() <= 200 {

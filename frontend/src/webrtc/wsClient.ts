@@ -1,5 +1,6 @@
 import { useChatStore } from "../stores/chatStore";
 import { useEmoteStore } from "../stores/emoteStore";
+import { useObjectStore } from "../stores/objectStore";
 import { useRoomStore } from "../stores/roomStore";
 import type { ClientMessage, ServerMessage } from "../types";
 import {
@@ -51,11 +52,13 @@ export function handleServerMessage(msg: ServerMessage): void {
   const room = useRoomStore.getState();
   const chat = useChatStore.getState();
   const emote = useEmoteStore.getState();
+  const objects = useObjectStore.getState();
 
   switch (msg.type) {
     case "welcome":
       room.setWelcome(msg.your_id, msg.players);
       setMyId(msg.your_id);
+      objects.setObjects(msg.objects ?? []);
       break;
 
     case "player_joined":
@@ -111,6 +114,16 @@ export function handleServerMessage(msg: ServerMessage): void {
 
     case "local_chat":
       chat.addMessage({ fromId: msg.from_id, text: msg.text, isLocal: true });
+      break;
+
+    case "object_placed":
+      objects.addObject(msg.object);
+      break;
+    case "object_moved":
+      objects.moveObject(msg.object_id, msg.x, msg.y);
+      break;
+    case "object_deleted":
+      objects.removeObject(msg.object_id);
       break;
   }
 }

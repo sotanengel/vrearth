@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Application, Graphics, Text } from "pixi.js";
 import { useEmoteStore } from "../stores/emoteStore";
+import { useObjectStore } from "../stores/objectStore";
 import { useRoomStore } from "../stores/roomStore";
 import { sendMessage } from "../webrtc/wsClient";
 import { computeMoveDelta } from "./movement";
@@ -16,16 +17,33 @@ const ROOM_HEIGHT = 720;
 
 const heldKeys = new Set<string>();
 
+// Furniture visual config
+const FURNITURE: Record<string, { w: number; h: number; color: number; label: string }> = {
+  sofa:      { w: 80,  h: 40,  color: 0x8b4513, label: "🛋️" },
+  table:     { w: 60,  h: 60,  color: 0xdeb887, label: "🪵" },
+  plant:     { w: 30,  h: 50,  color: 0x228b22, label: "🪴" },
+  tv:        { w: 80,  h: 20,  color: 0x2d3748, label: "📺" },
+  bookshelf: { w: 20,  h: 60,  color: 0x8b4513, label: "📚" },
+  lamp:      { w: 20,  h: 40,  color: 0xffd700, label: "💡" },
+  rug:       { w: 100, h: 80,  color: 0xcd853f, label: "🟫" },
+};
+
 interface RoomSceneProps {
   showRange?: boolean;
+  editMode?: boolean;
+  selectedKind?: string;
 }
 
-export function RoomScene({ showRange = false }: RoomSceneProps) {
+export function RoomScene({ showRange = false, editMode = false, selectedKind = "sofa" }: RoomSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
   const lastMoveRef = useRef<number>(0);
   const showRangeRef = useRef(showRange);
+  const editModeRef = useRef(editMode);
+  const selectedKindRef = useRef(selectedKind);
   useEffect(() => { showRangeRef.current = showRange; }, [showRange]);
+  useEffect(() => { editModeRef.current = editMode; }, [editMode]);
+  useEffect(() => { selectedKindRef.current = selectedKind; }, [selectedKind]);
 
   useEffect(() => {
     const app = new Application();
@@ -62,6 +80,9 @@ export function RoomScene({ showRange = false }: RoomSceneProps) {
       >();
       const emoteLabels = new Map<string, Text>();
 
+      // ── Furniture layer (below avatars and range circle) ─────────────────
+      const furnitureGraphics = new Map<string, { rect: Graphics; label: Text }>();
+
       // ── Hearing range indicator (semi-transparent circle around own avatar) ─
       const rangeCircle = new Graphics();
       app.stage.addChildAt(rangeCircle, 0); // render below avatars
@@ -96,18 +117,42 @@ export function RoomScene({ showRange = false }: RoomSceneProps) {
       };
       const onMouseUp = (e: MouseEvent) => {
         if (dragging && !dragMoved) {
-          // Pure click — teleport avatar to clicked position
           const rect = app.canvas.getBoundingClientRect();
           const targetX = e.clientX - rect.left;
           const targetY = e.clientY - rect.top;
-          const { players, myId } = useRoomStore.getState();
-          const myPos = myId ? players.get(myId)?.position : undefined;
-          if (myPos) {
-            sendMessage({ type: "move", dx: targetX - myPos.x, dy: targetY - myPos.y });
+
+          if (editModeRef.current) {
+            // Edit mode: check if clicking an existing object (for deletion)
+            const { objects } = useObjectStore.getState();
+            let clickedObjectId: string | null = null;
+            for (const obj of objects.values()) {
+              const cfg = FURNITURE[obj.kind] ?? { w: 40, h: 40 };
+              if (
+                targetX >= obj.x - cfg.w / 2 &&
+                targetX <= obj.x + cfg.w / 2 &&
+                targetY >= obj.y - cfg.h / 2 &&
+                targetY <= obj.y + cfg.h / 2
+              ) {
+                clickedObjectId = obj.id;
+                break;
+              }
+            }
+            if (clickedObjectId) {
+              sendMessage({ type: "delete_object", object_id: clickedObjectId });
+            } else {
+              sendMessage({ type: "place_object", kind: selectedKindRef.current, x: targetX, y: targetY });
+            }
+          } else {
+            // Normal mode: teleport avatar to clicked position
+            const { players, myId } = useRoomStore.getState();
+            const myPos = myId ? players.get(myId)?.position : undefined;
+            if (myPos) {
+              sendMessage({ type: "move", dx: targetX - myPos.x, dy: targetY - myPos.y });
+            }
           }
         }
         dragging = false;
-        app.canvas.style.cursor = "grab";
+        app.canvas.style.cursor = editModeRef.current ? "crosshair" : "grab";
       };
 
       // ── Keyboard movement ─────────────────────────────────────────────────
@@ -125,7 +170,7 @@ export function RoomScene({ showRange = false }: RoomSceneProps) {
       window.addEventListener("keydown", onKeyDown);
       window.addEventListener("keyup", onKeyUp);
 
-      app.canvas.style.cursor = "grab";
+      app.canvas.style.cursor = editModeRef.current ? "crosshair" : "grab";
       app.canvas.addEventListener("mousedown", onMouseDown);
       window.addEventListener("mousemove", onMouseMove);
       window.addEventListener("mouseup", onMouseUp);
@@ -142,7 +187,39 @@ export function RoomScene({ showRange = false }: RoomSceneProps) {
         }
 
         const { players, myId } = useRoomStore.getState();
+        const { objects: roomObjects } = useObjectStore.getState();
         const { emotes, clearExpired } = useEmoteStore.getState();
+
+        // ── Update furniture graphics ─────────────────────────────────────
+        roomObjects.forEach((obj, id) => {
+          if (!furnitureGraphics.has(id)) {
+            const cfg = FURNITURE[obj.kind] ?? { w: 40, h: 40, color: 0x555555, label: "?" };
+            const rect = new Graphics()
+              .rect(-cfg.w / 2, -cfg.h / 2, cfg.w, cfg.h)
+              .fill({ color: cfg.color, alpha: 0.85 });
+            const label = new Text({ text: cfg.label, style: { fontSize: 18 } });
+            label.anchor.set(0.5, 0.5);
+            app.stage.addChildAt(rect, 0);
+            app.stage.addChildAt(label, 1);
+            furnitureGraphics.set(id, { rect, label });
+          }
+          const { rect, label } = furnitureGraphics.get(id)!;
+          rect.x = obj.x;
+          rect.y = obj.y;
+          label.x = obj.x;
+          label.y = obj.y;
+          // In edit mode, tint furniture to show it's interactive
+          rect.alpha = editModeRef.current ? 0.65 : 0.85;
+        });
+        furnitureGraphics.forEach(({ rect, label }, id) => {
+          if (!roomObjects.has(id)) {
+            app.stage.removeChild(rect);
+            app.stage.removeChild(label);
+            rect.destroy();
+            label.destroy();
+            furnitureGraphics.delete(id);
+          }
+        });
         clearExpired();
 
         // Add/update/remove emote bubbles above avatars
