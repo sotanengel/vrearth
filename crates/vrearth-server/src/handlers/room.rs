@@ -1,6 +1,6 @@
 use crate::{invite::InviteService, state::AppState};
 use axum::{
-    extract::State,
+    extract::{Query, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     Json,
@@ -58,11 +58,18 @@ fn extract_bearer(headers: &HeaderMap) -> Option<&str> {
         .or_else(|| val.strip_prefix("bearer "))
 }
 
+#[derive(Deserialize)]
+pub struct InviteQuery {
+    /// Optional TTL override: "1h", "24h", or "7d". Defaults to 24h.
+    pub ttl: Option<String>,
+}
+
 /// POST /api/rooms/:room_id/invite — host-only endpoint to issue a guest invite token
 pub async fn create_invite(
     State(state): State<AppState>,
     axum::extract::Path(room_id_str): axum::extract::Path<String>,
     headers: HeaderMap,
+    Query(query): Query<InviteQuery>,
 ) -> impl IntoResponse {
     let token_str = match extract_bearer(&headers) {
         Some(t) => t,
@@ -85,7 +92,13 @@ pub async fn create_invite(
         return (StatusCode::FORBIDDEN, "room mismatch").into_response();
     }
 
-    let token = match InviteService::issue_guest(claims.room_id, &state.jwt_secret) {
+    let ttl_secs: i64 = match query.ttl.as_deref() {
+        Some("1h") => 3600,
+        Some("7d") => 7 * 24 * 3600,
+        _ => 24 * 3600, // default: 24h
+    };
+
+    let token = match InviteService::issue_guest_with_ttl(claims.room_id, &state.jwt_secret, ttl_secs) {
         Ok(t) => t,
         Err(e) => {
             tracing::error!("failed to issue guest token: {e}");
