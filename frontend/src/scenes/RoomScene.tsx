@@ -3,6 +3,7 @@ import { Application, Graphics, Text } from "pixi.js";
 import { useRoomStore } from "../stores/roomStore";
 import { sendMessage } from "../webrtc/wsClient";
 import { computeMoveDelta } from "./movement";
+import { AUDIO_MAX_DIST } from "../webrtc/rtcManager";
 
 const AVATAR_RADIUS = 20;
 const SIDEBAR_WIDTH = 260;
@@ -14,10 +15,16 @@ const ROOM_HEIGHT = 720;
 
 const heldKeys = new Set<string>();
 
-export function RoomScene() {
+interface RoomSceneProps {
+  showRange?: boolean;
+}
+
+export function RoomScene({ showRange = false }: RoomSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
   const lastMoveRef = useRef<number>(0);
+  const showRangeRef = useRef(showRange);
+  useEffect(() => { showRangeRef.current = showRange; }, [showRange]);
 
   useEffect(() => {
     const app = new Application();
@@ -52,6 +59,10 @@ export function RoomScene() {
         string,
         { circle: Graphics; ring: Graphics; label: Text }
       >();
+
+      // ── Hearing range indicator (semi-transparent circle around own avatar) ─
+      const rangeCircle = new Graphics();
+      app.stage.addChildAt(rangeCircle, 0); // render below avatars
 
       // ── Drag-to-move / click-to-move ──────────────────────────────────────
       let dragging = false;
@@ -129,6 +140,18 @@ export function RoomScene() {
         }
 
         const { players, myId } = useRoomStore.getState();
+
+        // Update hearing range circle
+        const myPlayer = myId ? players.get(myId) : undefined;
+        rangeCircle.clear();
+        if (myPlayer && showRangeRef.current) {
+          rangeCircle
+            .circle(myPlayer.position.x, myPlayer.position.y, AUDIO_MAX_DIST)
+            .fill({ color: 0x4fc3f7, alpha: 0.08 });
+          rangeCircle
+            .circle(myPlayer.position.x, myPlayer.position.y, AUDIO_MAX_DIST)
+            .stroke({ color: 0x4fc3f7, width: 1, alpha: 0.35 });
+        }
 
         // Add/update avatar graphics
         players.forEach((player, id) => {

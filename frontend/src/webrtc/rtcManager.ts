@@ -59,6 +59,12 @@ export function toggleMute(): boolean {
   return muted;
 }
 
+/** Explicitly set mute state (used by push-to-talk). */
+export function setMute(newMuted: boolean): void {
+  muted = newMuted;
+  applyMute();
+}
+
 function applyMute(): void {
   if (!localStream) return;
   for (const track of localStream.getAudioTracks()) {

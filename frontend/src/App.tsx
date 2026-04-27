@@ -1,15 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChatPanel } from "./components/ChatPanel";
 import { PlayerPanel } from "./components/PlayerPanel";
 import { RoomScene } from "./scenes/RoomScene";
 import { connect } from "./webrtc/wsClient";
-import { initAudio, toggleMute } from "./webrtc/rtcManager";
+import { initAudio, setMute, toggleMute } from "./webrtc/rtcManager";
 
 export function App() {
   const token = new URLSearchParams(window.location.search).get("token") ?? "";
   const [name, setName] = useState("");
   const [joined, setJoined] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [pttMode, setPttMode] = useState(false);
+  const [showRange, setShowRange] = useState(false);
+  const pttActiveRef = useRef(false);
 
   useEffect(() => {
     if (token && joined) {
@@ -18,7 +21,43 @@ export function App() {
     }
   }, [token, joined]);
 
+  // Push-to-talk: Space held = unmuted, released = muted
+  useEffect(() => {
+    if (!pttMode) return;
+    // Enter PTT mode muted
+    setMute(true);
+    setMuted(true);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.code !== "Space" ||
+        e.repeat ||
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) return;
+      e.preventDefault();
+      if (!pttActiveRef.current) {
+        pttActiveRef.current = true;
+        setMute(false);
+        setMuted(false);
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      pttActiveRef.current = false;
+      setMute(true);
+      setMuted(true);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      pttActiveRef.current = false;
+    };
+  }, [pttMode]);
+
   const handleMuteToggle = () => {
+    if (pttMode) return; // PTT mode controls mute via Space key
     const nowMuted = toggleMute();
     setMuted(nowMuted);
   };
@@ -62,16 +101,32 @@ export function App() {
 
   return (
     <div style={styles.room}>
-      <RoomScene />
+      <RoomScene showRange={showRange} />
       <div style={styles.sidebar}>
         <PlayerPanel token={token} />
         <ChatPanel />
         <button
           onClick={handleMuteToggle}
-          style={{ ...styles.muteButton, background: muted ? "#ef4444" : "#22c55e" }}
-          title={muted ? "マイクをオンにする" : "マイクをミュート"}
+          style={{ ...styles.muteButton, background: pttMode ? "#6b7280" : muted ? "#ef4444" : "#22c55e" }}
+          title={pttMode ? "PTTモード中 (Spaceで発話)" : muted ? "マイクをオンにする" : "マイクをミュート"}
         >
-          {muted ? "🔇 ミュート中" : "🎤 ミュート"}
+          {pttMode
+            ? `🎙️ PTT${muted ? "" : " (ON)"}`
+            : muted ? "🔇 ミュート中" : "🎤 ミュート"}
+        </button>
+        <button
+          onClick={() => setPttMode((v) => !v)}
+          style={{ ...styles.muteButton, background: pttMode ? "#7c3aed" : "#374151" }}
+          title={pttMode ? "PTTモードを無効化" : "PTTモードを有効化 (Spaceで発話)"}
+        >
+          {pttMode ? "🔵 PTT ON" : "⚪ PTT OFF"}
+        </button>
+        <button
+          onClick={() => setShowRange((v) => !v)}
+          style={{ ...styles.muteButton, background: showRange ? "#0e7490" : "#374151" }}
+          title={showRange ? "聴こえる範囲を非表示" : "聴こえる範囲を表示"}
+        >
+          {showRange ? "🔵 範囲表示中" : "⚪ 範囲を表示"}
         </button>
       </div>
     </div>
