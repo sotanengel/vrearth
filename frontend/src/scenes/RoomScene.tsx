@@ -53,13 +53,15 @@ export function RoomScene() {
         { circle: Graphics; ring: Graphics; label: Text }
       >();
 
-      // ── Drag-to-move ──────────────────────────────────────────────────────
+      // ── Drag-to-move / click-to-move ──────────────────────────────────────
       let dragging = false;
+      let dragMoved = false;
       let lastDragX = 0;
       let lastDragY = 0;
 
       const onMouseDown = (e: MouseEvent) => {
         dragging = true;
+        dragMoved = false;
         lastDragX = e.clientX;
         lastDragY = e.clientY;
         (e.currentTarget as HTMLElement).style.cursor = "grabbing";
@@ -71,6 +73,7 @@ export function RoomScene() {
         lastDragX = e.clientX;
         lastDragY = e.clientY;
         if (dx !== 0 || dy !== 0) {
+          dragMoved = true;
           const now = Date.now();
           if (now - lastMoveRef.current >= MOVE_THROTTLE_MS) {
             lastMoveRef.current = now;
@@ -78,7 +81,18 @@ export function RoomScene() {
           }
         }
       };
-      const onMouseUp = () => {
+      const onMouseUp = (e: MouseEvent) => {
+        if (dragging && !dragMoved) {
+          // Pure click — teleport avatar to clicked position
+          const rect = app.canvas.getBoundingClientRect();
+          const targetX = e.clientX - rect.left;
+          const targetY = e.clientY - rect.top;
+          const { players, myId } = useRoomStore.getState();
+          const myPos = myId ? players.get(myId)?.position : undefined;
+          if (myPos) {
+            sendMessage({ type: "move", dx: targetX - myPos.x, dy: targetY - myPos.y });
+          }
+        }
         dragging = false;
         app.canvas.style.cursor = "grab";
       };
