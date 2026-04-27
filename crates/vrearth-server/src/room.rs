@@ -12,6 +12,8 @@ pub struct ActiveRoom {
     pub bounds: RoomBounds,
     /// Per-player direct (non-broadcast) senders for targeted messages like WebRTC signaling
     pub direct: HashMap<PlayerId, mpsc::Sender<ServerMessage>>,
+    /// Currently loaded YouTube video ID (None if no video)
+    pub youtube_video_id: Option<String>,
 }
 
 impl ActiveRoom {
@@ -22,6 +24,7 @@ impl ActiveRoom {
             tx,
             bounds: RoomBounds::default(),
             direct: HashMap::new(),
+            youtube_video_id: None,
         }
     }
 }
@@ -143,6 +146,21 @@ impl RoomRegistry {
             .and_then(|r| r.players.get(player_id))
             .map(|p| p.is_host)
             .unwrap_or(false)
+    }
+
+    /// Get the current YouTube video ID for a room
+    pub fn get_youtube_video_id(&self, room_id: &RoomId) -> Option<String> {
+        let map = self.inner.lock().unwrap();
+        map.get(room_id)
+            .and_then(|r| r.youtube_video_id.clone())
+    }
+
+    /// Set the YouTube video ID for a room
+    pub fn set_youtube_video_id(&self, room_id: &RoomId, video_id: Option<String>) {
+        let mut map = self.inner.lock().unwrap();
+        if let Some(room) = map.get_mut(room_id) {
+            room.youtube_video_id = video_id;
+        }
     }
 
     /// Get a broadcast sender for a room

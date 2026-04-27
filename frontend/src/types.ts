@@ -38,12 +38,15 @@ export type ClientMessage =
   | { type: "local_chat"; text: string }
   | { type: "place_object"; kind: string; x: number; y: number }
   | { type: "move_object"; object_id: string; x: number; y: number }
-  | { type: "delete_object"; object_id: string };
+  | { type: "delete_object"; object_id: string }
+  | { type: "youtube_load"; video_id: string }
+  | { type: "youtube_play"; position_secs: number }
+  | { type: "youtube_pause"; position_secs: number };
 
 // ── Server → Client ──────────────────────────────────────────────────────────
 
 export type ServerMessage =
-  | { type: "welcome"; your_id: PlayerId; players: Player[]; objects: RoomObject[] }
+  | { type: "welcome"; your_id: PlayerId; players: Player[]; objects: RoomObject[]; youtube_video_id: string | null }
   | { type: "player_moved"; player_id: PlayerId; position: Position }
   | { type: "player_joined"; player: Player }
   | { type: "player_left"; player_id: PlayerId }
@@ -57,4 +60,7 @@ export type ServerMessage =
   | { type: "local_chat"; from_id: PlayerId; text: string }
   | { type: "object_placed"; object: RoomObject }
   | { type: "object_moved"; object_id: string; x: number; y: number }
-  | { type: "object_deleted"; object_id: string };
+  | { type: "object_deleted"; object_id: string }
+  | { type: "youtube_load"; video_id: string }
+  | { type: "youtube_play"; position_secs: number }
+  | { type: "youtube_pause"; position_secs: number };
