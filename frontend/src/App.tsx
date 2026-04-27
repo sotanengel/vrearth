@@ -11,6 +11,8 @@ export function App() {
   const token = new URLSearchParams(window.location.search).get("token") ?? "";
   const [name, setName] = useState("");
   const [joined, setJoined] = useState(false);
+  const [creatingRoom, setCreatingRoom] = useState(false);
+  const [createError, setCreateError] = useState("");
   const [muted, setMuted] = useState(false);
   const [pttMode, setPttMode] = useState(false);
   const [showRange, setShowRange] = useState(false);
@@ -66,13 +68,38 @@ export function App() {
     setMuted(nowMuted);
   };
 
+  const handleCreateRoom = async () => {
+    setCreatingRoom(true);
+    setCreateError("");
+    try {
+      const resp = await fetch("/api/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "My Room" }),
+      });
+      if (!resp.ok) throw new Error(`${resp.status}`);
+      const data = (await resp.json()) as { host_token: string };
+      window.location.href = `/?token=${data.host_token}`;
+    } catch (e) {
+      setCreateError("部屋の作成に失敗しました。サーバーが起動しているか確認してください。");
+    } finally {
+      setCreatingRoom(false);
+    }
+  };
+
   if (!token) {
     return (
       <div style={styles.center}>
         <h1 style={styles.title}>vrearth</h1>
-        <p style={styles.subtitle}>
-          招待リンクが必要です。ホストに招待リンクを発行してもらってください。
-        </p>
+        <p style={styles.subtitle}>招待リンクで参加するか、部屋を新しく作ってください。</p>
+        <button
+          onClick={() => void handleCreateRoom()}
+          disabled={creatingRoom}
+          style={{ ...styles.button, marginTop: 16 }}
+        >
+          {creatingRoom ? "作成中…" : "🏠 部屋を作る"}
+        </button>
+        {createError && <p style={{ color: "#ef4444", marginTop: 8 }}>{createError}</p>}
       </div>
     );
   }
