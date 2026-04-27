@@ -19,6 +19,8 @@ pub enum ClientMessage {
     RtcAnswer { to_id: PlayerId, sdp: String },
     /// WebRTC signaling: send ICE candidate to a specific peer
     RtcIce { to_id: PlayerId, candidate: String },
+    /// Send an emoji reaction (broadcast to whole room)
+    Emote { emoji: String },
 }
 
 /// Messages sent from the server to a browser client
@@ -54,6 +56,8 @@ pub enum ServerMessage {
         from_id: PlayerId,
         candidate: String,
     },
+    /// Emoji reaction broadcast from a player
+    Emote { from_id: PlayerId, emoji: String },
 }
 
 #[cfg(test)]

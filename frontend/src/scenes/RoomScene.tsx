@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Application, Graphics, Text } from "pixi.js";
+import { useEmoteStore } from "../stores/emoteStore";
 import { useRoomStore } from "../stores/roomStore";
 import { sendMessage } from "../webrtc/wsClient";
 import { computeMoveDelta } from "./movement";
@@ -59,6 +60,7 @@ export function RoomScene({ showRange = false }: RoomSceneProps) {
         string,
         { circle: Graphics; ring: Graphics; label: Text }
       >();
+      const emoteLabels = new Map<string, Text>();
 
       // ── Hearing range indicator (semi-transparent circle around own avatar) ─
       const rangeCircle = new Graphics();
@@ -140,6 +142,34 @@ export function RoomScene({ showRange = false }: RoomSceneProps) {
         }
 
         const { players, myId } = useRoomStore.getState();
+        const { emotes, clearExpired } = useEmoteStore.getState();
+        clearExpired();
+
+        // Add/update/remove emote bubbles above avatars
+        emotes.forEach((active, id) => {
+          const player = players.get(id);
+          if (!player) return;
+          if (!emoteLabels.has(id)) {
+            const t = new Text({
+              text: active.emoji,
+              style: { fontSize: 28 },
+            });
+            t.anchor.set(0.5, 1);
+            app.stage.addChild(t);
+            emoteLabels.set(id, t);
+          }
+          const t = emoteLabels.get(id)!;
+          t.text = active.emoji;
+          t.x = player.position.x;
+          t.y = player.position.y - AVATAR_RADIUS - 10;
+        });
+        emoteLabels.forEach((t, id) => {
+          if (!emotes.has(id)) {
+            app.stage.removeChild(t);
+            t.destroy();
+            emoteLabels.delete(id);
+          }
+        });
 
         // Update hearing range circle
         const myPlayer = myId ? players.get(myId) : undefined;

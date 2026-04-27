@@ -4,6 +4,7 @@ import { useRoomStore } from "../stores/roomStore";
 import { sendMessage } from "../webrtc/wsClient";
 
 const MAX_TEXT_LEN = 200;
+const QUICK_EMOTES = ["👋", "😂", "👍", "❤️", "😮", "🎉"];
 
 export function ChatPanel() {
   const messages = useChatStore((s) => s.messages);
@@ -17,6 +18,10 @@ export function ChatPanel() {
       sendMessage({ type: "chat", text: trimmed });
       setText("");
     }
+  };
+
+  const sendEmote = (emoji: string) => {
+    sendMessage({ type: "emote", emoji });
   };
 
   return (
@@ -53,6 +58,26 @@ export function ChatPanel() {
         <div ref={bottomRef} />
       </ul>
       <div style={{ padding: "8px", borderTop: "1px solid #374151" }}>
+        <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+          {QUICK_EMOTES.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => sendEmote(emoji)}
+              style={{
+                background: "none",
+                border: "1px solid #374151",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: 16,
+                padding: "2px 4px",
+                lineHeight: 1,
+              }}
+              title={`${emoji} を送る`}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
         <input
           data-testid="chat-input"
           value={text}
