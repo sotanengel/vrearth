@@ -100,11 +100,14 @@ async fn handle_socket(
         .await
         .unwrap_or_default();
 
+    let youtube_video_id = state.rooms.get_youtube_video_id(&room_id);
+
     // Send Welcome to new player
     let welcome = ServerMessage::Welcome {
         your_id: player_id.clone(),
         players: all_players,
         objects: room_objects,
+        youtube_video_id,
     };
     if let Ok(json) = serde_json::to_string(&welcome) {
         let _ = ws_tx.send(Message::Text(json.into())).await;
@@ -264,6 +267,22 @@ async fn handle_socket(
                     {
                         let _ = tx.send(ServerMessage::ObjectDeleted { object_id });
                     }
+                }
+            }
+            ClientMessage::YoutubeLoad { video_id } => {
+                if state.rooms.is_host(&room_id, &player_id) {
+                    state.rooms.set_youtube_video_id(&room_id, Some(video_id.clone()));
+                    let _ = tx.send(ServerMessage::YoutubeLoad { video_id });
+                }
+            }
+            ClientMessage::YoutubePlay { position_secs } => {
+                if state.rooms.is_host(&room_id, &player_id) {
+                    let _ = tx.send(ServerMessage::YoutubePlay { position_secs });
+                }
+            }
+            ClientMessage::YoutubePause { position_secs } => {
+                if state.rooms.is_host(&room_id, &player_id) {
+                    let _ = tx.send(ServerMessage::YoutubePause { position_secs });
                 }
             }
             ClientMessage::LocalChat { text } => {

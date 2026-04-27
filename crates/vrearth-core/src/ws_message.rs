@@ -29,6 +29,12 @@ pub enum ClientMessage {
     MoveObject { object_id: String, x: f32, y: f32 },
     /// Host: remove an object from the room
     DeleteObject { object_id: String },
+    /// Host: load a YouTube video by video ID
+    YoutubeLoad { video_id: String },
+    /// Host: play from position (seconds)
+    YoutubePlay { position_secs: f32 },
+    /// Host: pause at position (seconds)
+    YoutubePause { position_secs: f32 },
 }
 
 /// Messages sent from the server to a browser client
@@ -40,6 +46,7 @@ pub enum ServerMessage {
         your_id: PlayerId,
         players: Vec<Player>,
         objects: Vec<RoomObject>,
+        youtube_video_id: Option<String>,
     },
     /// Broadcast when any avatar position changes
     PlayerMoved {
@@ -75,6 +82,12 @@ pub enum ServerMessage {
     ObjectMoved { object_id: String, x: f32, y: f32 },
     /// Broadcast when an object is deleted
     ObjectDeleted { object_id: String },
+    /// Broadcast: load/switch YouTube video
+    YoutubeLoad { video_id: String },
+    /// Broadcast: play from position
+    YoutubePlay { position_secs: f32 },
+    /// Broadcast: pause at position
+    YoutubePause { position_secs: f32 },
 }
 
 #[cfg(test)]
@@ -121,14 +134,16 @@ mod tests {
             your_id: id.clone(),
             players: vec![],
             objects: vec![],
+            youtube_video_id: None,
         };
         let json = serde_json::to_string(&msg).unwrap();
         let back: ServerMessage = serde_json::from_str(&json).unwrap();
         match back {
-            ServerMessage::Welcome { your_id, players, objects } => {
+            ServerMessage::Welcome { your_id, players, objects, youtube_video_id } => {
                 assert_eq!(your_id, id);
                 assert!(players.is_empty());
                 assert!(objects.is_empty());
+                assert!(youtube_video_id.is_none());
             }
             _ => panic!("wrong variant"),
         }

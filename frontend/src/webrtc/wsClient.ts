@@ -2,6 +2,7 @@ import { useChatStore } from "../stores/chatStore";
 import { useEmoteStore } from "../stores/emoteStore";
 import { useObjectStore } from "../stores/objectStore";
 import { useRoomStore } from "../stores/roomStore";
+import { useYoutubeStore } from "../stores/youtubeStore";
 import type { ClientMessage, ServerMessage } from "../types";
 import {
   connectPeer,
@@ -53,12 +54,14 @@ export function handleServerMessage(msg: ServerMessage): void {
   const chat = useChatStore.getState();
   const emote = useEmoteStore.getState();
   const objects = useObjectStore.getState();
+  const youtube = useYoutubeStore.getState();
 
   switch (msg.type) {
     case "welcome":
       room.setWelcome(msg.your_id, msg.players);
       setMyId(msg.your_id);
       objects.setObjects(msg.objects ?? []);
+      if (msg.youtube_video_id) youtube.setVideoId(msg.youtube_video_id);
       break;
 
     case "player_joined":
@@ -124,6 +127,16 @@ export function handleServerMessage(msg: ServerMessage): void {
       break;
     case "object_deleted":
       objects.removeObject(msg.object_id);
+      break;
+
+    case "youtube_load":
+      youtube.setVideoId(msg.video_id);
+      break;
+    case "youtube_play":
+      youtube.setPlaying(true, msg.position_secs);
+      break;
+    case "youtube_pause":
+      youtube.setPlaying(false, msg.position_secs);
       break;
   }
 }

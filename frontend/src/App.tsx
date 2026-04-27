@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChatPanel } from "./components/ChatPanel";
 import { LayoutPanel } from "./components/LayoutPanel";
 import { PlayerPanel } from "./components/PlayerPanel";
+import { YoutubePanel } from "./components/YoutubePanel";
 import { RoomScene } from "./scenes/RoomScene";
 import { useRoomStore } from "./stores/roomStore";
 import { connect } from "./webrtc/wsClient";
@@ -18,6 +19,7 @@ export function App() {
   const [showRange, setShowRange] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedKind, setSelectedKind] = useState<string>("sofa");
+  const [showYoutube, setShowYoutube] = useState(false);
   const pttActiveRef = useRef(false);
 
   useEffect(() => {
@@ -136,6 +138,7 @@ export function App() {
   return (
     <div style={styles.room}>
       <RoomScene showRange={showRange} editMode={editMode} selectedKind={selectedKind} />
+      <YoutubePanel isHost={isHost} visible={showYoutube} />
       <div style={styles.sidebar}>
         <PlayerPanel token={token} />
         {isHost && (
@@ -169,6 +172,13 @@ export function App() {
           title={showRange ? "聴こえる範囲を非表示" : "聴こえる範囲を表示"}
         >
           {showRange ? "🔵 範囲表示中" : "⚪ 範囲を表示"}
+        </button>
+        <button
+          onClick={() => setShowYoutube((v) => !v)}
+          style={{ ...styles.muteButton, background: showYoutube ? "#dc2626" : "#374151" }}
+          title="YouTube同時視聴"
+        >
+          {showYoutube ? "📺 YouTube非表示" : "📺 YouTube"}
         </button>
       </div>
     </div>
