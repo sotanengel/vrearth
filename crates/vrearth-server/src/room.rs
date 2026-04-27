@@ -109,6 +109,33 @@ impl RoomRegistry {
             .map(|r| r.players.values().cloned().collect())
     }
 
+    /// Get the position of a specific player
+    pub fn get_player_position(&self, room_id: &RoomId, player_id: &PlayerId) -> Option<vrearth_core::Position> {
+        let map = self.inner.lock().unwrap();
+        map.get(room_id)
+            .and_then(|r| r.players.get(player_id))
+            .map(|p| p.position)
+    }
+
+    /// Return IDs of all players within max_dist of origin (inclusive of sender)
+    pub fn players_within_range(
+        &self,
+        room_id: &RoomId,
+        origin: &vrearth_core::Position,
+        max_dist: f32,
+    ) -> Vec<PlayerId> {
+        let map = self.inner.lock().unwrap();
+        match map.get(room_id) {
+            None => vec![],
+            Some(room) => room
+                .players
+                .values()
+                .filter(|p| origin.distance_to(&p.position) <= max_dist)
+                .map(|p| p.id.clone())
+                .collect(),
+        }
+    }
+
     /// Check if a player is the host of a room
     pub fn is_host(&self, room_id: &RoomId, player_id: &PlayerId) -> bool {
         let map = self.inner.lock().unwrap();

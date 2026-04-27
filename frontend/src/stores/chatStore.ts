@@ -5,6 +5,7 @@ export interface ChatMessage {
   fromId: PlayerId;
   text: string;
   timestamp: number;
+  isLocal?: boolean;
 }
 
 interface ChatState {

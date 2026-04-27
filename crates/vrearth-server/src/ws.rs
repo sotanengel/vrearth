@@ -1,4 +1,8 @@
 use crate::{invite::InviteService, state::AppState};
+
+/// Radius (room units) within which LocalChat messages are delivered
+const LOCAL_CHAT_RANGE: f32 = 400.0;
+
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
@@ -218,6 +222,23 @@ async fn handle_socket(
                         candidate,
                     },
                 );
+            }
+            ClientMessage::LocalChat { text } => {
+                if !text.is_empty() && text.len() <= 200 {
+                    if let Some(my_pos) = state.rooms.get_player_position(&room_id, &player_id) {
+                        let nearby = state.rooms.players_within_range(&room_id, &my_pos, LOCAL_CHAT_RANGE);
+                        for target_id in nearby {
+                            state.rooms.send_direct(
+                                &room_id,
+                                &target_id,
+                                ServerMessage::LocalChat {
+                                    from_id: player_id.clone(),
+                                    text: text.clone(),
+                                },
+                            );
+                        }
+                    }
+                }
             }
             ClientMessage::Emote { emoji } => {
                 // Only allow single grapheme cluster to prevent abuse
