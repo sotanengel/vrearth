@@ -2,6 +2,7 @@ import { useChatStore } from "../stores/chatStore";
 import { useEmoteStore } from "../stores/emoteStore";
 import { useObjectStore } from "../stores/objectStore";
 import { useRoomStore } from "../stores/roomStore";
+import { useWhiteboardStore } from "../stores/whiteboardStore";
 import { useYoutubeStore } from "../stores/youtubeStore";
 import type { ClientMessage, ServerMessage } from "../types";
 import {
@@ -55,6 +56,7 @@ export function handleServerMessage(msg: ServerMessage): void {
   const emote = useEmoteStore.getState();
   const objects = useObjectStore.getState();
   const youtube = useYoutubeStore.getState();
+  const whiteboard = useWhiteboardStore.getState();
 
   switch (msg.type) {
     case "welcome":
@@ -137,6 +139,16 @@ export function handleServerMessage(msg: ServerMessage): void {
       break;
     case "youtube_pause":
       youtube.setPlaying(false, msg.position_secs);
+      break;
+
+    case "whiteboard_draw":
+      whiteboard.addStroke({ color: msg.color, size: msg.size, points: msg.points });
+      break;
+    case "whiteboard_clear":
+      whiteboard.clear();
+      break;
+    case "whiteboard_snapshot":
+      whiteboard.setStrokes(msg.strokes);
       break;
   }
 }

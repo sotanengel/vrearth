@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChatPanel } from "./components/ChatPanel";
 import { LayoutPanel } from "./components/LayoutPanel";
 import { PlayerPanel } from "./components/PlayerPanel";
+import { WhiteboardPanel } from "./components/WhiteboardPanel";
 import { YoutubePanel } from "./components/YoutubePanel";
 import { RoomScene } from "./scenes/RoomScene";
 import { useRoomStore } from "./stores/roomStore";
@@ -20,6 +21,7 @@ export function App() {
   const [editMode, setEditMode] = useState(false);
   const [selectedKind, setSelectedKind] = useState<string>("sofa");
   const [showYoutube, setShowYoutube] = useState(false);
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
   const pttActiveRef = useRef(false);
 
   useEffect(() => {
@@ -139,6 +141,7 @@ export function App() {
     <div style={styles.room}>
       <RoomScene showRange={showRange} editMode={editMode} selectedKind={selectedKind} />
       <YoutubePanel isHost={isHost} visible={showYoutube} />
+      <WhiteboardPanel isHost={isHost} visible={showWhiteboard} />
       <div style={styles.sidebar}>
         <PlayerPanel token={token} />
         {isHost && (
@@ -179,6 +182,13 @@ export function App() {
           title="YouTube同時視聴"
         >
           {showYoutube ? "📺 YouTube非表示" : "📺 YouTube"}
+        </button>
+        <button
+          onClick={() => setShowWhiteboard((v) => !v)}
+          style={{ ...styles.muteButton, background: showWhiteboard ? "#7c3aed" : "#374151" }}
+          title="ホワイトボード"
+        >
+          {showWhiteboard ? "🖊️ ボード閉じる" : "🖊️ ホワイトボード"}
         </button>
       </div>
     </div>

@@ -113,6 +113,15 @@ async fn handle_socket(
         let _ = ws_tx.send(Message::Text(json.into())).await;
     }
 
+    // Send whiteboard snapshot to new player
+    let strokes = state.rooms.get_whiteboard_strokes(&room_id);
+    if !strokes.is_empty() {
+        let snapshot = ServerMessage::WhiteboardSnapshot { strokes };
+        if let Ok(json) = serde_json::to_string(&snapshot) {
+            let _ = ws_tx.send(Message::Text(json.into())).await;
+        }
+    }
+
     // Broadcast PlayerJoined to others
     let _ = tx.send(ServerMessage::PlayerJoined { player });
 
@@ -310,6 +319,22 @@ async fn handle_socket(
                         from_id: player_id.clone(),
                         emoji: grapheme,
                     });
+                }
+            }
+            ClientMessage::WhiteboardDraw { color, size, points } => {
+                let stroke = vrearth_core::WhiteboardStroke { color: color.clone(), size, points: points.clone() };
+                state.rooms.add_whiteboard_stroke(&room_id, stroke);
+                let _ = tx.send(ServerMessage::WhiteboardDraw {
+                    from_id: player_id.clone(),
+                    color,
+                    size,
+                    points,
+                });
+            }
+            ClientMessage::WhiteboardClear => {
+                if state.rooms.is_host(&room_id, &player_id) {
+                    state.rooms.clear_whiteboard(&room_id);
+                    let _ = tx.send(ServerMessage::WhiteboardClear);
                 }
             }
         }

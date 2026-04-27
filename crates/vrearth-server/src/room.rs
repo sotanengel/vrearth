@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 use tokio::sync::{broadcast, mpsc};
-use vrearth_core::{Player, PlayerId, Position, RoomBounds, RoomId, ServerMessage};
+use vrearth_core::{Player, PlayerId, Position, RoomBounds, RoomId, ServerMessage, WhiteboardStroke};
+
+const MAX_WHITEBOARD_STROKES: usize = 500;
 
 pub const BROADCAST_CAPACITY: usize = 128;
 pub const DIRECT_CAPACITY: usize = 64;
@@ -14,6 +16,8 @@ pub struct ActiveRoom {
     pub direct: HashMap<PlayerId, mpsc::Sender<ServerMessage>>,
     /// Currently loaded YouTube video ID (None if no video)
     pub youtube_video_id: Option<String>,
+    /// Whiteboard stroke history (capped at MAX_WHITEBOARD_STROKES)
+    pub whiteboard_strokes: Vec<WhiteboardStroke>,
 }
 
 impl ActiveRoom {
@@ -25,6 +29,7 @@ impl ActiveRoom {
             bounds: RoomBounds::default(),
             direct: HashMap::new(),
             youtube_video_id: None,
+            whiteboard_strokes: Vec::new(),
         }
     }
 }
@@ -146,6 +151,33 @@ impl RoomRegistry {
             .and_then(|r| r.players.get(player_id))
             .map(|p| p.is_host)
             .unwrap_or(false)
+    }
+
+    /// Get all whiteboard strokes for a room
+    pub fn get_whiteboard_strokes(&self, room_id: &RoomId) -> Vec<WhiteboardStroke> {
+        let map = self.inner.lock().unwrap();
+        map.get(room_id)
+            .map(|r| r.whiteboard_strokes.clone())
+            .unwrap_or_default()
+    }
+
+    /// Append a stroke (capped at MAX_WHITEBOARD_STROKES)
+    pub fn add_whiteboard_stroke(&self, room_id: &RoomId, stroke: WhiteboardStroke) {
+        let mut map = self.inner.lock().unwrap();
+        if let Some(room) = map.get_mut(room_id) {
+            if room.whiteboard_strokes.len() >= MAX_WHITEBOARD_STROKES {
+                room.whiteboard_strokes.remove(0);
+            }
+            room.whiteboard_strokes.push(stroke);
+        }
+    }
+
+    /// Clear all whiteboard strokes
+    pub fn clear_whiteboard(&self, room_id: &RoomId) {
+        let mut map = self.inner.lock().unwrap();
+        if let Some(room) = map.get_mut(room_id) {
+            room.whiteboard_strokes.clear();
+        }
     }
 
     /// Get the current YouTube video ID for a room

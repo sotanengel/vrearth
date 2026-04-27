@@ -41,7 +41,15 @@ export type ClientMessage =
   | { type: "delete_object"; object_id: string }
   | { type: "youtube_load"; video_id: string }
   | { type: "youtube_play"; position_secs: number }
-  | { type: "youtube_pause"; position_secs: number };
+  | { type: "youtube_pause"; position_secs: number }
+  | { type: "whiteboard_draw"; color: string; size: number; points: [number, number][] }
+  | { type: "whiteboard_clear" };
+
+export interface WhiteboardStroke {
+  color: string;
+  size: number;
+  points: [number, number][];
+}
 
 // ── Server → Client ──────────────────────────────────────────────────────────
 
@@ -63,4 +71,7 @@ export type ServerMessage =
   | { type: "object_deleted"; object_id: string }
   | { type: "youtube_load"; video_id: string }
   | { type: "youtube_play"; position_secs: number }
-  | { type: "youtube_pause"; position_secs: number };
+  | { type: "youtube_pause"; position_secs: number }
+  | { type: "whiteboard_draw"; from_id: PlayerId; color: string; size: number; points: [number, number][] }
+  | { type: "whiteboard_clear" }
+  | { type: "whiteboard_snapshot"; strokes: WhiteboardStroke[] };

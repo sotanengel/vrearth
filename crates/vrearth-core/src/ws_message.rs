@@ -1,4 +1,4 @@
-use crate::{Player, PlayerId, Position, RoomObject};
+use crate::{Player, PlayerId, Position, RoomObject, WhiteboardStroke};
 use serde::{Deserialize, Serialize};
 
 /// Messages sent from the browser client to the server
@@ -35,6 +35,10 @@ pub enum ClientMessage {
     YoutubePlay { position_secs: f32 },
     /// Host: pause at position (seconds)
     YoutubePause { position_secs: f32 },
+    /// Draw a stroke on the shared whiteboard
+    WhiteboardDraw { color: String, size: f32, points: Vec<[f32; 2]> },
+    /// Clear the shared whiteboard
+    WhiteboardClear,
 }
 
 /// Messages sent from the server to a browser client
@@ -88,6 +92,12 @@ pub enum ServerMessage {
     YoutubePlay { position_secs: f32 },
     /// Broadcast: pause at position
     YoutubePause { position_secs: f32 },
+    /// Broadcast whiteboard stroke
+    WhiteboardDraw { from_id: PlayerId, color: String, size: f32, points: Vec<[f32; 2]> },
+    /// Broadcast whiteboard clear
+    WhiteboardClear,
+    /// Sent to joining player — current whiteboard strokes snapshot
+    WhiteboardSnapshot { strokes: Vec<WhiteboardStroke> },
 }
 
 #[cfg(test)]

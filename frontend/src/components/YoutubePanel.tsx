@@ -7,9 +7,12 @@ interface Props {
   visible: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type YTNamespace = any;
+
 declare global {
   interface Window {
-    YT: typeof YT;
+    YT: YTNamespace;
     onYouTubeIframeAPIReady: () => void;
   }
 }
@@ -19,7 +22,7 @@ function extractVideoId(input: string): string | null {
   const urlMatch = input.match(
     /(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/,
   );
-  if (urlMatch) return urlMatch[1];
+  if (urlMatch) return urlMatch[1] ?? null;
   if (/^[A-Za-z0-9_-]{11}$/.test(input.trim())) return input.trim();
   return null;
 }
@@ -28,7 +31,8 @@ export function YoutubePanel({ isHost, visible }: Props) {
   const { videoId, playing, seekTo, clearSeek } = useYoutubeStore();
   const [urlInput, setUrlInput] = useState("");
   const [apiReady, setApiReady] = useState(false);
-  const playerRef = useRef<YT.Player | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const playerRef = useRef<any | null>(null);
   const playerDivRef = useRef<HTMLDivElement>(null);
 
   // Load YouTube IFrame API script once
@@ -59,9 +63,10 @@ export function YoutubePanel({ isHost, visible }: Props) {
       videoId,
       playerVars: { autoplay: 0, controls: isHost ? 1 : 0 },
       events: {
-        onStateChange: (e) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onStateChange: (e: any) => {
           if (!isHost) return;
-          const pos = playerRef.current?.getCurrentTime() ?? 0;
+          const pos = (playerRef.current?.getCurrentTime() as number | undefined) ?? 0;
           if (e.data === window.YT.PlayerState.PLAYING) {
             sendMessage({ type: "youtube_play", position_secs: pos });
           } else if (e.data === window.YT.PlayerState.PAUSED) {
