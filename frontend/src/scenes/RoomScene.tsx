@@ -2,10 +2,12 @@ import { useEffect, useRef } from "react";
 import { Application, Graphics, Text } from "pixi.js";
 import { useRoomStore } from "../stores/roomStore";
 import { sendMessage } from "../webrtc/wsClient";
+import { computeMoveDelta } from "./movement";
 
 const AVATAR_RADIUS = 20;
 const SIDEBAR_WIDTH = 260;
 const MOVE_THROTTLE_MS = 50; // ~20 moves/s max
+const MOVE_SPEED = 4; // pixels per tick for keyboard movement
 // Room world size (must match server RoomBounds)
 const ROOM_WIDTH = 1280;
 const ROOM_HEIGHT = 720;
@@ -81,6 +83,21 @@ export function RoomScene() {
         app.canvas.style.cursor = "grab";
       };
 
+      // ── Keyboard movement ─────────────────────────────────────────────────
+      const MOVE_KEYS = new Set(["w", "a", "s", "d", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+        if (MOVE_KEYS.has(e.key)) {
+          e.preventDefault();
+          heldKeys.add(e.key);
+        }
+      };
+      const onKeyUp = (e: KeyboardEvent) => {
+        heldKeys.delete(e.key);
+      };
+      window.addEventListener("keydown", onKeyDown);
+      window.addEventListener("keyup", onKeyUp);
+
       app.canvas.style.cursor = "grab";
       app.canvas.addEventListener("mousedown", onMouseDown);
       window.addEventListener("mousemove", onMouseMove);
@@ -88,6 +105,15 @@ export function RoomScene() {
 
       // ── Render ticker ─────────────────────────────────────────────────────
       app.ticker.add(() => {
+        const { dx, dy } = computeMoveDelta(heldKeys, MOVE_SPEED);
+        if (dx !== 0 || dy !== 0) {
+          const now = Date.now();
+          if (now - lastMoveRef.current >= MOVE_THROTTLE_MS) {
+            lastMoveRef.current = now;
+            sendMessage({ type: "move", dx, dy });
+          }
+        }
+
         const { players, myId } = useRoomStore.getState();
 
         // Add/update avatar graphics
@@ -143,6 +169,9 @@ export function RoomScene() {
         app.canvas.removeEventListener("mousedown", onMouseDown);
         window.removeEventListener("mousemove", onMouseMove);
         window.removeEventListener("mouseup", onMouseUp);
+        window.removeEventListener("keydown", onKeyDown);
+        window.removeEventListener("keyup", onKeyUp);
+        heldKeys.clear();
       };
     };
 
