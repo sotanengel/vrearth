@@ -1,4 +1,5 @@
 import { useChatStore } from "../stores/chatStore";
+import { useEmoteStore } from "../stores/emoteStore";
 import { useRoomStore } from "../stores/roomStore";
 import type { ClientMessage, ServerMessage } from "../types";
 import {
@@ -49,6 +50,7 @@ export function sendMessage(msg: ClientMessage): void {
 export function handleServerMessage(msg: ServerMessage): void {
   const room = useRoomStore.getState();
   const chat = useChatStore.getState();
+  const emote = useEmoteStore.getState();
 
   switch (msg.type) {
     case "welcome":
@@ -101,6 +103,10 @@ export function handleServerMessage(msg: ServerMessage): void {
 
     case "rtc_ice":
       void handleIce(msg.from_id, msg.candidate);
+      break;
+
+    case "emote":
+      emote.showEmote(msg.from_id, msg.emoji);
       break;
   }
 }

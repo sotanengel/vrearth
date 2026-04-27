@@ -219,6 +219,16 @@ async fn handle_socket(
                     },
                 );
             }
+            ClientMessage::Emote { emoji } => {
+                // Only allow single grapheme cluster to prevent abuse
+                let grapheme = emoji.chars().next().map(|c| c.to_string()).unwrap_or_default();
+                if !grapheme.is_empty() {
+                    let _ = tx.send(ServerMessage::Emote {
+                        from_id: player_id.clone(),
+                        emoji: grapheme,
+                    });
+                }
+            }
         }
     }
 
