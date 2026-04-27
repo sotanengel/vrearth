@@ -21,6 +21,8 @@ pub enum ClientMessage {
     RtcIce { to_id: PlayerId, candidate: String },
     /// Send an emoji reaction (broadcast to whole room)
     Emote { emoji: String },
+    /// Send a proximity chat (only delivered to players within LOCAL_CHAT_RANGE)
+    LocalChat { text: String },
 }
 
 /// Messages sent from the server to a browser client
@@ -58,6 +60,8 @@ pub enum ServerMessage {
     },
     /// Emoji reaction broadcast from a player
     Emote { from_id: PlayerId, emoji: String },
+    /// Proximity chat message (only sent to nearby players)
+    LocalChat { from_id: PlayerId, text: String },
 }
 
 #[cfg(test)]

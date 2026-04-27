@@ -24,7 +24,8 @@ export type ClientMessage =
   | { type: "rtc_offer"; to_id: PlayerId; sdp: string }
   | { type: "rtc_answer"; to_id: PlayerId; sdp: string }
   | { type: "rtc_ice"; to_id: PlayerId; candidate: string }
-  | { type: "emote"; emoji: string };
+  | { type: "emote"; emoji: string }
+  | { type: "local_chat"; text: string };
 
 // ── Server → Client ──────────────────────────────────────────────────────────
 
@@ -39,4 +40,5 @@ export type ServerMessage =
   | { type: "rtc_offer"; from_id: PlayerId; sdp: string }
   | { type: "rtc_answer"; from_id: PlayerId; sdp: string }
   | { type: "rtc_ice"; from_id: PlayerId; candidate: string }
-  | { type: "emote"; from_id: PlayerId; emoji: string };
+  | { type: "emote"; from_id: PlayerId; emoji: string }
+  | { type: "local_chat"; from_id: PlayerId; text: string };

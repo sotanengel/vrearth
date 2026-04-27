@@ -108,5 +108,9 @@ export function handleServerMessage(msg: ServerMessage): void {
     case "emote":
       emote.showEmote(msg.from_id, msg.emoji);
       break;
+
+    case "local_chat":
+      chat.addMessage({ fromId: msg.from_id, text: msg.text, isLocal: true });
+      break;
   }
 }
