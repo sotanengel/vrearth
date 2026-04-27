@@ -23,15 +23,20 @@ impl InviteService {
         )
     }
 
-    /// Issue a single-use guest invite token
+    /// Issue a single-use guest invite token (default 24h TTL)
     pub fn issue_guest(room_id: RoomId, secret: &[u8]) -> Result<String> {
+        Self::issue_guest_with_ttl(room_id, secret, GUEST_TOKEN_TTL_SECS)
+    }
+
+    /// Issue a guest invite token with an explicit TTL in seconds
+    pub fn issue_guest_with_ttl(room_id: RoomId, secret: &[u8], ttl_secs: i64) -> Result<String> {
         let now = now_secs();
         Self::encode_claims(
             InviteClaims {
                 room_id,
                 is_host: false,
                 iat: now,
-                exp: now + GUEST_TOKEN_TTL_SECS,
+                exp: now + ttl_secs,
             },
             secret,
         )

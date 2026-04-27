@@ -11,6 +11,7 @@ export function PlayerPanel({ token }: Props) {
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ttl, setTtl] = useState<"1h" | "24h" | "7d">("24h");
 
   const isHost = players.get(myId ?? "")?.is_host ?? false;
 
@@ -18,7 +19,7 @@ export function PlayerPanel({ token }: Props) {
     if (!roomId) return;
     setLoading(true);
     try {
-      const resp = await fetch(`/api/rooms/${roomId}/invite`, {
+      const resp = await fetch(`/api/rooms/${roomId}/invite?ttl=${ttl}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -72,6 +73,18 @@ export function PlayerPanel({ token }: Props) {
 
       {isHost && (
         <div style={styles.inviteSection}>
+          <div style={styles.ttlRow}>
+            <span style={styles.ttlLabel}>有効期限:</span>
+            {(["1h", "24h", "7d"] as const).map((opt) => (
+              <button
+                key={opt}
+                onClick={() => { setTtl(opt); setInviteUrl(null); }}
+                style={{ ...styles.ttlBtn, background: ttl === opt ? "#1d4ed8" : "#374151" }}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => void generateInvite()}
             disabled={loading}
@@ -157,6 +170,25 @@ const styles = {
   },
   inviteSection: {
     marginTop: 8,
+  },
+  ttlRow: {
+    display: "flex" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    marginBottom: 6,
+  },
+  ttlLabel: {
+    fontSize: 10,
+    color: "#9ca3af",
+    flexShrink: 0,
+  },
+  ttlBtn: {
+    padding: "2px 6px",
+    border: "none",
+    borderRadius: 3,
+    color: "#f3f4f6",
+    fontSize: 10,
+    cursor: "pointer",
   },
   inviteBtn: {
     width: "100%",
