@@ -22,6 +22,8 @@ describe("wsClient message handling", () => {
           is_host: true,
         },
       ],
+      objects: [],
+      youtube_video_id: null,
     });
     expect(useRoomStore.getState().myId).toBe("p1");
     expect(useRoomStore.getState().players.size).toBe(1);
