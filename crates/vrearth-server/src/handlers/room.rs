@@ -1,4 +1,4 @@
-use crate::{invite::InviteService, state::AppState};
+use crate::{invite::InviteService, sessions, state::AppState};
 use axum::{
     extract::{Query, State},
     http::{HeaderMap, StatusCode},
@@ -107,4 +107,18 @@ pub async fn create_invite(
     };
 
     Json(CreateInviteResponse { token }).into_response()
+}
+
+/// GET /api/rooms/:room_id/sessions — list recent participant sessions
+pub async fn get_sessions(
+    State(state): State<AppState>,
+    axum::extract::Path(room_id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    match sessions::list_sessions(&state.db, &room_id, 200).await {
+        Ok(entries) => Json(entries).into_response(),
+        Err(e) => {
+            tracing::error!("failed to list sessions: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
 }

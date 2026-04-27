@@ -1,5 +1,17 @@
 import { useEffect, useRef } from "react";
 import { Application, Graphics, Text } from "pixi.js";
+
+let _activeApp: Application | null = null;
+
+/** Captures the current PixiJS canvas as a JPEG data URL (used by screenshot feature) */
+export function captureRoomScreenshot(): string | null {
+  if (!_activeApp) return null;
+  try {
+    return _activeApp.canvas.toDataURL("image/jpeg", 0.7);
+  } catch {
+    return null;
+  }
+}
 import { useEmoteStore } from "../stores/emoteStore";
 import { useObjectStore } from "../stores/objectStore";
 import { useRoomStore } from "../stores/roomStore";
@@ -69,6 +81,7 @@ export function RoomScene({ showRange = false, editMode = false, selectedKind = 
       if (!containerRef.current) return;
       containerRef.current.appendChild(app.canvas);
       appRef.current = app;
+      _activeApp = app;
       initialized = true;
 
       // Move avatar to room center on join
@@ -331,6 +344,7 @@ export function RoomScene({ showRange = false, editMode = false, selectedKind = 
         app.destroy(true);
       }
       appRef.current = null;
+      _activeApp = null;
     };
   }, []);
 

@@ -1,5 +1,6 @@
 import { useChatStore } from "../stores/chatStore";
 import { useEmoteStore } from "../stores/emoteStore";
+import { useMemoriesStore } from "../stores/memoriesStore";
 import { useObjectStore } from "../stores/objectStore";
 import { useRoomStore } from "../stores/roomStore";
 import { useWhiteboardStore } from "../stores/whiteboardStore";
@@ -57,6 +58,7 @@ export function handleServerMessage(msg: ServerMessage): void {
   const objects = useObjectStore.getState();
   const youtube = useYoutubeStore.getState();
   const whiteboard = useWhiteboardStore.getState();
+  const memories = useMemoriesStore.getState();
 
   switch (msg.type) {
     case "welcome":
@@ -68,7 +70,7 @@ export function handleServerMessage(msg: ServerMessage): void {
 
     case "player_joined":
       room.upsertPlayer(msg.player);
-      // Initiate WebRTC voice connection with the new peer
+      memories.recordJoin(msg.player.id, msg.player.name);
       void connectPeer(msg.player.id);
       break;
 
@@ -85,6 +87,7 @@ export function handleServerMessage(msg: ServerMessage): void {
 
     case "player_left":
       room.removePlayer(msg.player_id);
+      memories.recordLeave(msg.player_id);
       disconnectPeer(msg.player_id);
       break;
 

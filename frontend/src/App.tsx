@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { ChatPanel } from "./components/ChatPanel";
 import { LayoutPanel } from "./components/LayoutPanel";
+import { MemoriesPanel } from "./components/MemoriesPanel";
 import { PlayerPanel } from "./components/PlayerPanel";
 import { WhiteboardPanel } from "./components/WhiteboardPanel";
 import { YoutubePanel } from "./components/YoutubePanel";
-import { RoomScene } from "./scenes/RoomScene";
+import { RoomScene, captureRoomScreenshot } from "./scenes/RoomScene";
+import { useMemoriesStore } from "./stores/memoriesStore";
 import { useRoomStore } from "./stores/roomStore";
 import { connect } from "./webrtc/wsClient";
 import { initAudio, setMute, toggleMute } from "./webrtc/rtcManager";
@@ -22,6 +24,7 @@ export function App() {
   const [selectedKind, setSelectedKind] = useState<string>("sofa");
   const [showYoutube, setShowYoutube] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [showMemories, setShowMemories] = useState(false);
   const pttActiveRef = useRef(false);
 
   useEffect(() => {
@@ -136,12 +139,21 @@ export function App() {
 
   const { players, myId } = useRoomStore();
   const isHost = players.get(myId ?? "")?.is_host ?? false;
+  const addScreenshot = useMemoriesStore((s) => s.addScreenshot);
+
+  const handleScreenshot = () => {
+    const dataUrl = captureRoomScreenshot();
+    if (!dataUrl) return;
+    const playerNames = [...players.values()].map((p) => p.name);
+    addScreenshot(dataUrl, playerNames);
+  };
 
   return (
     <div style={styles.room}>
       <RoomScene showRange={showRange} editMode={editMode} selectedKind={selectedKind} />
       <YoutubePanel isHost={isHost} visible={showYoutube} />
       <WhiteboardPanel isHost={isHost} visible={showWhiteboard} />
+      <MemoriesPanel visible={showMemories} onClose={() => setShowMemories(false)} />
       <div style={styles.sidebar}>
         <PlayerPanel token={token} />
         {isHost && (
@@ -189,6 +201,20 @@ export function App() {
           title="ホワイトボード"
         >
           {showWhiteboard ? "🖊️ ボード閉じる" : "🖊️ ホワイトボード"}
+        </button>
+        <button
+          onClick={handleScreenshot}
+          style={{ ...styles.muteButton, background: "#0f766e" }}
+          title="スクリーンショットを撮る"
+        >
+          📷 スクショ
+        </button>
+        <button
+          onClick={() => setShowMemories((v) => !v)}
+          style={{ ...styles.muteButton, background: showMemories ? "#92400e" : "#374151" }}
+          title="思い出を見る"
+        >
+          🕒 思い出
         </button>
       </div>
     </div>
